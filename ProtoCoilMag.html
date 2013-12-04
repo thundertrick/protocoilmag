@@ -19,6 +19,9 @@
 		<script src="http://rawgithub.com/mrdoob/three.js/master/examples/js/controls/TrackballControls.js"></script>
 		<script src="http://www.numericjs.com/lib/numeric-1.2.6.min.js"></script>
 
+		<script type='text/javascript' src='js/dat.gui.min.js'></script>
+		
+		<link rel=stylesheet href="css/jquery-ui.css" />
 		<style type="text/css">
 			body {
 				background-color: #222;
@@ -95,6 +98,22 @@
 		
 		//holly Pi
 		pi = Math.atan(1)*4;
+		
+		// custom global variables
+		var gui, gui_zText, 
+			gui_xMin, gui_xMax, gui_yMin, gui_yMax,
+			gui_a, gui_b, gui_c, gui_d,
+			gui_segments;
+		var zFuncText = "x^2 - y^2";
+		
+		// parameters for the equations
+		var a = 0.01, b = 0.01, c = 0.01, d = 0.01;
+
+		var meshFunction;
+		var segments = 20, 
+		xMin = -10, xMax = 10, xRange = xMax - xMin,
+		yMin = -10, yMax = 10, yRange = yMax - yMin,
+		zMin = -10, zMax = 10, zRange = zMax - zMin;
 
 		function setProgress(progress)
 		{           
@@ -105,6 +124,8 @@
 		$(document).ready(function(){
 
 			console.log(' Page Loaded ');
+			
+			loadGUI();
 			
 			$('#divHelloWorld').fadeIn(2000);
 
@@ -177,6 +198,151 @@
 			ProtoMag.root.rotation.z = rotZ;
 		}*/
 
+		function loadGUI()
+		{
+			///////////////////
+			//   GUI SETUP   //	
+			///////////////////
+
+			gui = new dat.GUI();
+			
+			parameters = 
+			{
+				resetCam:  function() { resetCamera(); },	
+				preset1:   function() { preset01(); },
+				graphFunc: function() { createGraph(); },
+				finalValue: 337
+			};
+
+			// GUI -- equation
+			gui_zText = gui.add( this, 'zFuncText' ).name('z = f(x,y) = ');
+			gui_xMin = gui.add( this, 'xMin' ).name('x Minimum = ');
+			gui_xMax = gui.add( this, 'xMax' ).name('x Maximum = ');
+			gui_yMin = gui.add( this, 'yMin' ).name('y Minimum = ');
+			gui_yMax = gui.add( this, 'yMax' ).name('y Maximum = ');
+			gui_segments = gui.add( this, 'segments' ).name('Subdivisions = ');
+
+			// GUI -- parameters
+			var gui_parameters = gui.addFolder('Parameters');
+			a = b = c = d = 0.01;
+			gui_a = gui_parameters.add( this, 'a' ).min(-5).max(5).step(0.01).name('a = ');
+			//gui_a.onChange( function(value) { createGraph(); } );
+			gui_b = gui_parameters.add( this, 'b' ).min(-5).max(5).step(0.01).name('b = ');
+			//gui_b.onChange( function(value) { createGraph(); } );
+			gui_c = gui_parameters.add( this, 'c' ).min(-5).max(5).step(0.01).name('c = ');
+			//gui_c.onChange( function(value) { createGraph(); } );
+			gui_d = gui_parameters.add( this, 'd' ).min(-5).max(5).step(0.01).name('d = ');
+			//gui_d.onChange( function(value) { createGraph(); } );
+			gui_a.setValue(1);
+			gui_b.setValue(1);
+			gui_c.setValue(1);
+			gui_d.setValue(1);
+
+			// GUI -- preset equations
+			var gui_preset = gui.addFolder('Preset equations');
+			gui_preset.add( parameters, 'preset1' ).name('Sine Circles');
+
+			gui.add( parameters, 'resetCam' ).name("Reset Camera");
+			gui.add( parameters, 'graphFunc' ).name("Graph Function");	
+			
+ 			//function preset01()
+			//{
+			//	gui_zText.setValue("sin(sqrt(a*x^2  + b*y^2))");
+			//	gui_xMin.setValue(-10); gui_xMax.setValue(10);
+			//	gui_yMin.setValue(-10); gui_yMax.setValue(10);
+			//	gui_a.setValue(1);
+			//	gui_b.setValue(1);
+			//	gui_segments.setValue(40);
+			//	createGraph(); resetCamera();
+			//}
+			
+			/*
+			SAMPLES:
+			
+				/////////
+	// GUI //
+	/////////
+	
+	gui = new dat.GUI();
+	parameters = 
+	{ c: 1.0, p: 1.4, bs: false, fs: true, nb: false, ab: true, mv: true, color: "#ffff00" };
+	
+	var top = gui.addFolder('Glow Shader Attributes');
+	
+	var cGUI = top.add( parameters, 'c' ).min(0.0).max(1.0).step(0.01).name("c").listen();
+	cGUI.onChange( function(value) { 
+		moonGlow.material.uniforms[ "c" ].value = parameters.c; 
+		crateGlow.material.uniforms[ "c" ].value = parameters.c; 
+	});
+	
+	var pGUI = top.add( parameters, 'p' ).min(0.0).max(6.0).step(0.01).name("p").listen();
+	pGUI.onChange( function(value) { 
+		moonGlow.material.uniforms[ "p" ].value = parameters.p; 
+		crateGlow.material.uniforms[ "p" ].value = parameters.p; 	
+	});
+
+	var glowColor = top.addColor( parameters, 'color' ).name('Glow Color').listen();
+	glowColor.onChange( function(value) {
+		moonGlow.material.uniforms.glowColor.value.setHex( value.replace("#", "0x"));   
+		crateGlow.material.uniforms.glowColor.value.setHex( value.replace("#", "0x"));   
+	});
+	top.open();
+	
+	// toggle front side / back side 
+	var folder1 = gui.addFolder('Render side');
+	var fsGUI = folder1.add( parameters, 'fs' ).name("THREE.FrontSide").listen();
+	fsGUI.onChange( function(value) { 
+	    if (value) 
+	    {
+	        bsGUI.setValue(false);
+			moonGlow.material.side = THREE.FrontSide;  
+			crateGlow.material.side = THREE.FrontSide;  
+	    }
+	});
+	var bsGUI = folder1.add( parameters, 'bs' ).name("THREE.BackSide").listen();
+	bsGUI.onChange( function(value) { 
+		if (value)
+		{
+			fsGUI.setValue(false);
+			moonGlow.material.side = THREE.BackSide;  
+			crateGlow.material.side = THREE.BackSide;  
+		}
+	});
+	folder1.open();
+	
+	// toggle normal blending / additive blending
+	var folder2 = gui.addFolder('Blending style');
+	var nbGUI = folder2.add( parameters, 'nb' ).name("THREE.NormalBlending").listen();
+	nbGUI.onChange( function(value) { 
+	    if (value) 
+	    {
+	        abGUI.setValue(false);
+			moonGlow.material.blending = THREE.NormalBlending;  
+			crateGlow.material.blending = THREE.NormalBlending;
+	    }
+	});
+	var abGUI = folder2.add( parameters, 'ab' ).name("THREE.AdditiveBlending").listen();
+	abGUI.onChange( function(value) { 
+		if (value)
+		{
+			nbGUI.setValue(false);
+			moonGlow.material.blending = THREE.AdditiveBlending; 
+			crateGlow.material.blending = THREE.AdditiveBlending;
+		}
+	});
+	folder2.open();
+
+    // toggle mesh visibility
+	var folder3 = gui.addFolder('Miscellaneous');
+	var mvGUI = folder3.add( parameters, 'mv' ).name("Meshes-Visible").listen();
+	mvGUI.onChange( function(value) { 
+		moon.visible = value; 
+		crate.visible = value;
+	});
+	folder3.open();
+			
+			*/
+		}
 		function RunSimulation()
 		{
 			var domaindim = parseFloat($('#domaindim').val());
@@ -840,6 +1006,8 @@
 <tr>
 <td width="400px">
 
+		<div><div id="SL_button" class="ImTranslatorLogo" style="display: none;"></div><div id="SL_shadow_translation_result2" style="display: none;"></div><div id="SL_shadow_translator" style="display: none;"><div id="SL_planshet"><div id="SL_TB"><div class="ImTranslatorLogo"></div><table cellspacing="1" border="0" id="SL_tables"><tbody><tr><td class="SL_td" align="left" width="20%"><div id="SL_lng_from">English&nbsp;»</div></td><td class="SL_td" align="left" width="20%"><select id="SL_lng_to"><option value="af">Afrikaans</option><option value="sq">Albanian</option><option value="ar">Arabic</option><option value="hy">Armenian</option><option value="az">Azerbaijani</option><option value="eu">Basque</option><option value="bn">Bengali</option><option value="be">Belarusian</option><option value="bg">Bulgarian</option><option value="ca">Catalan</option><option value="zh-CN">Chinese&nbsp;(Simp)</option><option value="zh-TW">Chinese&nbsp;(Trad)</option><option value="hr">Croatian</option><option value="cs">Czech</option><option value="da">Danish</option><option value="nl">Dutch</option><option value="en">English</option><option value="eo">Esperanto</option><option value="et">Estonian</option><option value="tl">Filipino</option><option value="fi">Finnish</option><option value="fr">French</option><option value="gl">Galician</option><option value="ka">Georgian</option><option value="de">German</option><option value="el">Greek</option><option value="gu">Gujarati</option><option value="ht">Haitian&nbsp;Creole</option><option value="iw">Hebrew</option><option value="hi">Hindi</option><option value="hu">Hungarian</option><option value="is">Icelandic</option><option value="id">Indonesian</option><option value="ga">Irish</option><option value="it">Italian</option><option value="ja">Japanese</option><option value="kn">Kannada</option><option value="ko">Korean</option><option value="lo">Lao</option><option value="la">Latin</option><option value="lv">Latvian</option><option value="lt">Lithuanian</option><option value="mk">Macedonian</option><option value="ms">Malay</option><option value="mt">Maltese</option><option value="no">Norwegian</option><option value="fa">Persian</option><option value="pl">Polish</option><option value="pt">Portuguese</option><option value="ro">Romanian</option><option value="ru">Russian</option><option value="sr">Serbian</option><option value="sk">Slovak</option><option value="sl">Slovenian</option><option selected="" value="es">Spanish</option><option value="sw">Swahili</option><option value="sv">Swedish</option><option value="ta">Tamil</option><option value="te">Telugu</option><option value="th">Thai</option><option value="tr">Turkish</option><option value="uk">Ukrainian</option><option value="ur">Urdu</option><option value="vi">Vietnamese</option><option value="cy">Welsh</option><option value="yi">Yiddish</option></select></td><td class="SL_td" width="13%" align="center">&nbsp;</td><td class="SL_td" width="8%" align="center"><div id="SL_TTS_voice" title="Listen to the translation"></div></td><td class="SL_td" width="8%" align="center"><div class="SL_copy_hand" id="SL_copy" title="Select text"></div></td><td class="SL_td" width="8%" align="center"><div class="SL_font_off" id="SL_bbl_font" title="Font size"></div></td><td class="SL_td" width="8%" align="center"><a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/history.html" target="_blank"><div class="SL_TH" title="Translation history"></div></a></td><td class="SL_td" width="5%"></td><td class="SL_td" width="8%" align="right"><div class="SL_pin_off" id="SL_pin" title="Pin pup-up bubble"></div></td></tr></tbody></table></div></div><div id="SL_shadow_translation_result"></div><div id="SL_bbl_donate" title="Make a small contribution"></div><div id="SL_Balloon_options"><a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/feedback.html" class="SL_options" title="Feedback" target="_blank">Feedback</a>&nbsp;:&nbsp;<a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/history.html" class="SL_options" title="Translation history" target="_blank">History</a>&nbsp;:&nbsp;<a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/options-bbl.html" target="_blank" class="SL_options" title="Show options">Options</a></div></div></div>
+		
 		<form novalidate>
 			<!--<input name="q" placeholder="Go to a Website">-->
 			<ul id="maintoolbar">
