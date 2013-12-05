@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+		<title>DeNaCoR :: ProtoMag v0.2</title>
+		<!--[if lt IE 9]>
+			<script src="js/excanvas.js"></script>
+		<![endif]-->
+        
+        <script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
+		<script type="text/javascript" src="js//three.min.js"></script>
+		<script type="text/javascript" src="js/TrackballControls.js"></script>
+		<script type="text/javascript" src="js/numeric-1.2.6.min.js"></script>
+		<script type="text/javascript" src="js/dat.gui.min.js"></script>
+		
+		<!-- NAMESPACES IN JS -->
+		<script type="text/javascript" src="js/ns.js"></script>
+		
+		<!-- SIMULATOR -->
+		<script type="text/javascript" src="PCM.Sim.js"></script>
+		
+		<!-- CSS -->
+		<link rel=stylesheet href="css/jquery-ui.css" />		
+		<link rel=stylesheet href="css/main.css" />
+
+    </head>
+    <body>
+	<script type="text/javascript" >
+		
+		//holly Pi
+		pi = Math.atan(1)*4;
+		
+		var model = 
+		{
+			DN : 7,
+			DX : 1.0,
+			DY : 1.0,
+			DZ : 0.6,
+			WL : 1,
+			CS : 12,
+			ForceDisableWebGL : false,
+			OrthoCamera : true,
+			FieldNormalized: true,
+			FieldCutter : 0,
+			FieldType : 0,
+			ResetCamera : function() {},
+			Simulate : function() {},
+			
+			colormap1 : "#ffae23"
+			
+			//this.color0 = "#ffae23"; // CSS string
+			//this.color1 = [ 0, 128, 255 ]; // RGB array
+			//this.color2 = [ 0, 128, 255, 0.3 ]; // RGB with alpha
+			//this.color3 = { h: 350, s: 0.9, v: 0.3 }; // Hue, saturation, value
+
+		};
+
+		function setProgress(progress)
+		{           
+			var progressBarWidth =progress*$("#progressbar_container").width()/ 100;  
+			$("#progressbar").width(progressBarWidth).html(progress + "% ");
+		}
+		
+		$(document).ready(function(){
+
+			console.log(' Page Loaded ');
+			
+			loadGUI(model);
+			
+			$('#divHelloWorld').fadeIn(4000);
+
+		});
+
+		function loadGUI( model)
+		{
+			gui = new dat.GUI();
+			
+			//GUI TAB: Camera
+			var guiTabCamera = gui.addFolder('Camera');
+			guiTabCamera.add(model, 'OrthoCamera', { Orthogonal: true, Perspective : false }).name("Type");
+			guiTabCamera.add(model, 'ForceDisableWebGL').name("Force NO WebGL");
+			
+			//GUI TAB: Domian Model
+			var guiTabDomain = gui.addFolder('Domain');
+			var guiDN = guiTabDomain.add( model, 'DN' ).min(7).max(50).step(1).name("Dimension").listen();
+			guiDN.onChange( function(value) { 
+				//moonGlow.material.uniforms[ "c" ].value = parameters.c; 
+				//crateGlow.material.uniforms[ "c" ].value = parameters.c; 
+			});
+			var guiDX = guiTabDomain.add( model, 'DX' ).min(0.1).max(10).step(1).name("Spacing X").listen();
+			var guiDY = guiTabDomain.add( model, 'DY' ).min(0.1).max(10).step(1).name("Spacing Y").listen();
+			var guiDZ = guiTabDomain.add( model, 'DZ' ).min(0.1).max(10).step(1).name("Spacing Z").listen();
+
+			//GUI TAB : Coil Model
+			var guiTabCoil = gui.addFolder('Coil');
+			var guiWL = guiTabCoil.add( model, 'WL' ).min(1).max(1000).step(10).name("Wire Loops").listen();
+			var guiCS = guiTabCoil.add( model, 'CS' ).min(12).max(48).step(1).name("Circle Segments").listen();
+			
+			//GUI TAB : Field Modify
+			var guiTabField= gui.addFolder('Field');
+			guiTabField.add(model, 'FieldType', { Cones: 0, Arrows : 1, Spheres : 2 }).name("Type");			
+			var guiFN= guiTabField.add( model, 'FieldNormalized' ).name("Normalized").listen();
+			var guiFC = guiTabField.add( model, 'FieldCutter' ).min(0).max(16).step(1).name("Cut Slize Z").listen();
+			guiFC.onChange( function(value) { 
+
+			});
+			
+			//GUI TAB : Color Map
+			var guiTabColorMap = gui.addFolder('Color Map');
+			guiTabColorMap.addColor( model, 'colormap1' ).name("Color 1");
+			
+			gui.add( model, 'ResetCamera' ).name("Reset Camera");
+			gui.add( model, 'Simulate' ).name("Simulate");
+			
+		}
+		function RunSimulation()
+		{
+			var domaindim = parseFloat($('#domaindim').val());
+			var coilloops = parseFloat($('#coilloops').val());
+			var coilsegments = parseFloat($('#coilsegs').val());
+			var stepx = parseFloat($('#domain_step_x').val());
+			var stepy = parseFloat($('#domain_step_y').val());
+			var stepz = parseFloat($('#domain_step_z').val());
+			
+			ProtoMag.Sim({
+				dim : domaindim, 
+				loops : coilloops,
+				segs : coilsegments,
+				stepx : stepx, 
+				stepy : stepy, 
+				stepz : stepz,
+				});
+		}
+
+
+		function RunVisualization()
+		{
+			var canvasElement = document.getElementById("canvas");
+			
+			
+			
+			var cameraX = parseFloat($('#camera_x').val());
+			var cameraY = parseFloat($('#camera_y').val());
+			var cameraZ = parseFloat($('#camera_z').val());
+			var rotX = parseFloat($('#camera_rotx').get(0).value);
+			var rotY = parseFloat($('#camera_roty').get(0).value);
+			var rotZ = parseFloat($('#camera_rotz').get(0).value);
+			var fieldType = parseFloat($('#fieldtype').get(0).value);
+			var showNormaizedField = $('#normalized').prop('checked');
+
+			//console.log($('input:radio[name=cameratype]:checked').val());
+			var isCameraOrthoView = $('input:radio[name=cameratype]:checked').val() === 'Orthogonal' ? true : false;
+
+			var sliderCutterZ = parseFloat($('#sliderfieldcutter').val());
+
+			var scene = new THREE.Scene();
+			//var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+			//var camera = new THREE.OrthographicCamera( window.innerWidth / - 2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / - 2, 0.1, 100 );
+			var camera = null;
+
+			if(isCameraOrthoView)
+				camera = new THREE.OrthographicCamera( -5, 5, 5, -5, 0.1, 1000 );
+			else
+				camera = new THREE.PerspectiveCamera( 75, canvasElement.clientWidth / canvasElement.clientHeight, 0.1, 100 );
+
+			camera.position.x = cameraX;
+			camera.position.y = cameraY;
+			camera.position.z = cameraZ;
+			
+			
+			//ProtoMag.RotX = rotX == 0 ? 0 : pi/rotX;
+			//ProtoMag.RotY = rotY == 0 ? 0 : pi/rotY;;
+			//ProtoMag.RotZ = rotZ == 0 ? 0 : pi/rotZ;;
+	   				
+			rotX = rotX == 0 ? 0 : pi/rotX;
+			rotY = rotY == 0 ? 0 : pi/rotY;;
+			rotZ = rotZ == 0 ? 0 : pi/rotZ;;
+
+			
+			var renderer = null;
+			if (window.WebGLRenderingContext)
+			{
+				//renderer = new THREE.WebGLRenderer({canvas:canvasElement});
+				renderer = new THREE.CanvasRenderer({canvas:canvasElement});
+			}
+			else
+			{
+				renderer = new THREE.CanvasRenderer({canvas:canvasElement});		
+			}
+			renderer.setSize( canvasElement.clientWidth, canvasElement.clientHeight );
+			
+			var mesh = ProtoMag.Mesh;
+			var UVW = ProtoMag.VectorField;
+			var coil = ProtoMag.CoildMesh;
+
+			if(mesh === undefined || UVW === undefined)
+			{
+				ProtoMag.log('cannot run visualization, run simulation first');
+				return;
+			}
+
+			//if(ProtoMag.root === undefined)
+			var rootNode = new THREE.Object3D();
+			
+			//show field
+			ProtoMag.showVectorField(rootNode,fieldType,showNormaizedField,mesh,UVW,sliderCutterZ);
+				
+			//show coil
+			ProtoMag.showLineSegments(rootNode,coil);
+				
+			scene.add(rootNode);
+			
+			//ProtoMag.root = rootNode;
+			
+			rootNode.rotation.x = rotX;
+			rootNode.rotation.y = rotY;
+			rootNode.rotation.z = rotZ;
+			
+			
+			//http://stackoverflow.com/questions/18347256/trackballcontrols-in-three-js
+			//http://threejs.org/examples/misc_controls_trackball.html
+			var controls = new THREE.TrackballControls(camera,renderer.domElement);
+			controls.rotateSpeed = 1.0;
+			controls.zoomSpeed = 1.2;
+			controls.panSpeed = 0.8;
+			controls.noZoom = false;
+			controls.noPan = false;
+			controls.staticMoving = true;
+			controls.dynamicDampingFactor = 0.3;
+			controls.keys = [ 65, 83, 68 ];
+			//controls.addEventListener( 'change', Render );
+			
+			ProtoMag.controls = controls;
+			
+			
+			//Render Scene
+			//renderer.render(scene, camera);			
+			ProtoMag.renderer = renderer;
+			ProtoMag.camera = camera;
+			ProtoMag.scene = scene;			
+			Animate();
+		}
+		
+		function Animate()
+		{
+			Render();
+			requestAnimationFrame(Animate);
+		}
+		
+		function Render()
+		{
+			ProtoMag.renderer.render(ProtoMag.scene, ProtoMag.camera);
+			ProtoMag.controls.update();
+		}
+
+	</script>
+
+		<header>
+			<div id="divHelloWorld">Welcome to ProtoMag</div>
+			<div id="progressbar_container"><div id="progressbar"></div></div>		
+        </header>
+
+       <canvas id="canvas" width="800" height="600"></canvas>
+
+
+		<footer>
+		Copyright 2013 Petar Petrov (www.ppetrov.net)
+		</footer>
+    </body>
+</html>

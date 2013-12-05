@@ -1,0 +1,69 @@
+body {
+	background-color: #222;
+	color : white;
+	table-layout:fixed
+}
+
+#progressbar_container
+{
+	width: 600px;
+	border: 1px solid #ddd;
+	border-radius: 5px; 
+	overflow: hidden;
+	display:inline-block;
+	margin:0px 10px 5px 5px;
+	vertical-align:top;
+}
+
+#progressbar 
+{
+	color: #fff;
+	text-align: right;
+	height: 25px;
+	width: 0;
+	background-color: #0ba1b5; 
+	border-radius: 3px; 
+}
+
+#divHelloWorld
+{
+  display: none;
+}
+
+#maintoolbar li
+{
+	list-style-type: none;
+	padding: 0;
+	margin: 0;
+
+}
+
+/*
+.infield_v li
+{
+	display: block;
+	float: left;
+}
+
+.infield_h li
+{
+	display: inline;
+}
+*/
+
+.fields
+{
+	display: inline-block;
+	vertical-align: top;
+	background-color: rgba(255,255,255, 0.2);
+	border : 1px solid #666;
+	box-shadow: 1px 1px 0 #111;
+}
+
+.fields legend {
+	text-shadow: 1px 1px 0 #111;
+}
+
+input[type=number] {
+	width : 3em;
+}
