@@ -95,320 +95,164 @@
 
     </style>
 		<script type="text/javascript" >
-		
 		//holly Pi
 		pi = Math.atan(1)*4;
 		
-		// custom global variables
-		var gui, gui_zText, 
-			gui_xMin, gui_xMax, gui_yMin, gui_yMax,
-			gui_a, gui_b, gui_c, gui_d,
-			gui_segments;
-		var zFuncText = "x^2 - y^2";
+		//canvas = document.getElementById("canvas");
+		//scene = new THREE.Scene();
 		
-		// parameters for the equations
-		var a = 0.01, b = 0.01, c = 0.01, d = 0.01;
+		var model = 
+		{
+			camera :
+			{
+				type : 0
+			},
+			domain :
+			{
+				dimension : 7,
+				stepx : 1.0,
+				stepy : 1.0,
+				stepz : 0.6
+			},
+			coil:
+			{			
+				loops : 1,
+				segments : 12
+			},
+			field:
+			{
+				type: 0,
+				normalized: true,
+				cutter: 0
+			},
+			colormap : 
+			{
+				cc1: "#ffae23"
+			},
+			
+			ForceDisableWebGL : false,
+			
 
-		var meshFunction;
-		var segments = 20, 
-		xMin = -10, xMax = 10, xRange = xMax - xMin,
-		yMin = -10, yMax = 10, yRange = yMax - yMin,
-		zMin = -10, zMax = 10, zRange = zMax - zMin;
+			ResetCamera : function() 
+			{
+				RunVisualization(this);
+			},
+			Simulate : function() 
+			{ 
+				RunSimulation(this);
+				RunVisualization(this);
+			},
+			Visualize : function()
+			{
+				RunVisualization(this);
+			}
+			
+			//this.color0 = "#ffae23"; // CSS string
+			//this.color1 = [ 0, 128, 255 ]; // RGB array
+			//this.color2 = [ 0, 128, 255, 0.3 ]; // RGB with alpha
+			//this.color3 = { h: 350, s: 0.9, v: 0.3 }; // Hue, saturation, value
+
+		};
+		
+		$(document).ready(function(){
+
+			console.log(' Page Loaded ');
+			
+			loadGUI(model);
+			
+			$('#divHelloWorld').fadeIn(4000);
+
+		});
 
 		function setProgress(progress)
 		{           
 			var progressBarWidth =progress*$("#progressbar_container").width()/ 100;  
 			$("#progressbar").width(progressBarWidth).html(progress + "% ");
 		}
+	
+		function loadGUI( model)
+		{		
+			gui = new dat.GUI();//{load:model,preset:"Default"});
+			
+			
+			//GUI TAB: Camera
+			var guiTabCamera = gui.addFolder('Camera');
+			guiTabCamera.add(model.camera, 'type', { Orthogonal: 0, Perspective : 1 }).name("Type");
+			guiTabCamera.add(model, 'ForceDisableWebGL').name("Force NO WebGL");
+			
+			//GUI TAB: Domian Model
+			var guiTabDomain = gui.addFolder('Domain');
+			var guiDN = guiTabDomain.add( model.domain, 'dimension' ).min(7).max(50).step(1.0).name("Dimension");
+			guiDN.onChange( function(value) { 
+				guiFC.max(value);
+			});
+			guiTabDomain.add( model.domain, 'stepx' ).min(0.1).max(10).step(1).name("Spacing X");
+			guiTabDomain.add( model.domain, 'stepy' ).min(0.1).max(10).step(1).name("Spacing Y");
+			guiTabDomain.add( model.domain, 'stepz' ).min(0.1).max(10).step(1).name("Spacing Z");
+
+
+			//GUI TAB : Coil Model
+			var guiTabCoil = gui.addFolder('Coil');
+			guiTabCoil.add( model.coil, 'loops' ).min(1).max(1000).step(10).name("Wire Loops");
+			guiTabCoil.add( model.coil, 'segments' ).min(12).max(48).step(1).name("Circle Segments");
+			
+			//GUI TAB : Field Modify
+			var guiTabField= gui.addFolder('Field');
+			guiTabField.add(model.field, 'type', { Cones: 0, Arrows : 1, Spheres : 2 }).name("Type");			
+			var guiFN= guiTabField.add( model.field, 'normalized' ).name("Normalized").listen();
+			var guiFC = guiTabField.add( model.field, 'cutter' ).min(0).max(16).step(1).name("Cut On Z").listen();
+			guiFC.onChange( function(value) { 
+				Visualize();
+			});
+			
+			//GUI TAB : Color Map
+			var guiTabColorMap = gui.addFolder('Color Map');
+			guiTabColorMap.addColor( model.colormap, 'cc1' ).name("Control Color 1");
+			
+			// GUI BUTTONS:
+			gui.add( model, 'ResetCamera' ).name("Reset Camera");
+			gui.add( model, 'Simulate' ).name("Simulate");
+			
+			//gui.remember(model);
+			//gui.remember(model.camera);
+			//gui.remember(model.domain);
+			//gui.remember(model.field);
+			//gui.revert();
+		}
 		
-		$(document).ready(function(){
-
-			console.log(' Page Loaded ');
-			
-			loadGUI();
-			
-			$('#divHelloWorld').fadeIn(2000);
-
-			$('#camera_x').change(function (evt) {
-				RunVisualization();
-			});
-			$('#camera_y').change(function (evt) {
-				RunVisualization();
-			});
-			$('#camera_z').change(function (evt) {
-				RunVisualization();
-			});
-
-			$('#camera_rotx').change(function (evt) {
-				RunVisualization();
-			});
-			$('#camera_roty').change(function (evt) {
-				RunVisualization();
-			});
-			$('#camera_rotz').change(function (evt) {
-				RunVisualization();
-			});
-
-			$('#gosim').click(function(event){
-				RunSimulation();
-			});
-
-			$('#govis').click(function(event){
-				RunVisualization();
-			});
-
-			$('#domaindim').change(function (evt) {
-				$('#sliderfieldcutter').attr('max', $(this).val());
-				RunSimulation();
-				RunVisualization();
-			});
-
-			$('#sliderfieldcutter').change(function (evt) {
-				RunVisualization();
-			});
-
-			$('input:radio[name=cameratype]').change(function (evt) {
-				RunVisualization();
-			});
-
-			$('#set_camerax').click(function (evt) {
-				RunVisualization();
-			});
-			$('#set_cameray').click(function (evt) {
-				RunVisualization();
-			});
-			$('#set_cameraz').click(function (evt) {
-				RunVisualization();
-			});
-		});
-		
-		/*
-		function RotateXXX()
+		function RunSimulation(model)
 		{
-			var rotX = parseFloat($('#camera_rotx').get(0).value);
-			var rotY = parseFloat($('#camera_roty').get(0).value);
-			var rotZ = parseFloat($('#camera_rotz').get(0).value);
-			
-			rotX = rotX == 0 ? 0 : pi/rotX;
-			rotY = rotY == 0 ? 0 : pi/rotY;
-			rotZ = rotZ == 0 ? 0 : pi/rotZ;
-			
-			ProtoMag.root.rotation.x = rotX;
-			ProtoMag.root.rotation.y = rotY;
-			ProtoMag.root.rotation.z = rotZ;
-		}*/
 
-		function loadGUI()
-		{
-			///////////////////
-			//   GUI SETUP   //	
-			///////////////////
-
-			gui = new dat.GUI();
-			
-			parameters = 
-			{
-				resetCam:  function() { resetCamera(); },	
-				preset1:   function() { preset01(); },
-				graphFunc: function() { createGraph(); },
-				finalValue: 337
-			};
-
-			// GUI -- equation
-			gui_zText = gui.add( this, 'zFuncText' ).name('z = f(x,y) = ');
-			gui_xMin = gui.add( this, 'xMin' ).name('x Minimum = ');
-			gui_xMax = gui.add( this, 'xMax' ).name('x Maximum = ');
-			gui_yMin = gui.add( this, 'yMin' ).name('y Minimum = ');
-			gui_yMax = gui.add( this, 'yMax' ).name('y Maximum = ');
-			gui_segments = gui.add( this, 'segments' ).name('Subdivisions = ');
-
-			// GUI -- parameters
-			var gui_parameters = gui.addFolder('Parameters');
-			a = b = c = d = 0.01;
-			gui_a = gui_parameters.add( this, 'a' ).min(-5).max(5).step(0.01).name('a = ');
-			//gui_a.onChange( function(value) { createGraph(); } );
-			gui_b = gui_parameters.add( this, 'b' ).min(-5).max(5).step(0.01).name('b = ');
-			//gui_b.onChange( function(value) { createGraph(); } );
-			gui_c = gui_parameters.add( this, 'c' ).min(-5).max(5).step(0.01).name('c = ');
-			//gui_c.onChange( function(value) { createGraph(); } );
-			gui_d = gui_parameters.add( this, 'd' ).min(-5).max(5).step(0.01).name('d = ');
-			//gui_d.onChange( function(value) { createGraph(); } );
-			gui_a.setValue(1);
-			gui_b.setValue(1);
-			gui_c.setValue(1);
-			gui_d.setValue(1);
-
-			// GUI -- preset equations
-			var gui_preset = gui.addFolder('Preset equations');
-			gui_preset.add( parameters, 'preset1' ).name('Sine Circles');
-
-			gui.add( parameters, 'resetCam' ).name("Reset Camera");
-			gui.add( parameters, 'graphFunc' ).name("Graph Function");	
-			
- 			//function preset01()
-			//{
-			//	gui_zText.setValue("sin(sqrt(a*x^2  + b*y^2))");
-			//	gui_xMin.setValue(-10); gui_xMax.setValue(10);
-			//	gui_yMin.setValue(-10); gui_yMax.setValue(10);
-			//	gui_a.setValue(1);
-			//	gui_b.setValue(1);
-			//	gui_segments.setValue(40);
-			//	createGraph(); resetCamera();
-			//}
-			
-			/*
-			SAMPLES:
-			
-				/////////
-	// GUI //
-	/////////
-	
-	gui = new dat.GUI();
-	parameters = 
-	{ c: 1.0, p: 1.4, bs: false, fs: true, nb: false, ab: true, mv: true, color: "#ffff00" };
-	
-	var top = gui.addFolder('Glow Shader Attributes');
-	
-	var cGUI = top.add( parameters, 'c' ).min(0.0).max(1.0).step(0.01).name("c").listen();
-	cGUI.onChange( function(value) { 
-		moonGlow.material.uniforms[ "c" ].value = parameters.c; 
-		crateGlow.material.uniforms[ "c" ].value = parameters.c; 
-	});
-	
-	var pGUI = top.add( parameters, 'p' ).min(0.0).max(6.0).step(0.01).name("p").listen();
-	pGUI.onChange( function(value) { 
-		moonGlow.material.uniforms[ "p" ].value = parameters.p; 
-		crateGlow.material.uniforms[ "p" ].value = parameters.p; 	
-	});
-
-	var glowColor = top.addColor( parameters, 'color' ).name('Glow Color').listen();
-	glowColor.onChange( function(value) {
-		moonGlow.material.uniforms.glowColor.value.setHex( value.replace("#", "0x"));   
-		crateGlow.material.uniforms.glowColor.value.setHex( value.replace("#", "0x"));   
-	});
-	top.open();
-	
-	// toggle front side / back side 
-	var folder1 = gui.addFolder('Render side');
-	var fsGUI = folder1.add( parameters, 'fs' ).name("THREE.FrontSide").listen();
-	fsGUI.onChange( function(value) { 
-	    if (value) 
-	    {
-	        bsGUI.setValue(false);
-			moonGlow.material.side = THREE.FrontSide;  
-			crateGlow.material.side = THREE.FrontSide;  
-	    }
-	});
-	var bsGUI = folder1.add( parameters, 'bs' ).name("THREE.BackSide").listen();
-	bsGUI.onChange( function(value) { 
-		if (value)
-		{
-			fsGUI.setValue(false);
-			moonGlow.material.side = THREE.BackSide;  
-			crateGlow.material.side = THREE.BackSide;  
-		}
-	});
-	folder1.open();
-	
-	// toggle normal blending / additive blending
-	var folder2 = gui.addFolder('Blending style');
-	var nbGUI = folder2.add( parameters, 'nb' ).name("THREE.NormalBlending").listen();
-	nbGUI.onChange( function(value) { 
-	    if (value) 
-	    {
-	        abGUI.setValue(false);
-			moonGlow.material.blending = THREE.NormalBlending;  
-			crateGlow.material.blending = THREE.NormalBlending;
-	    }
-	});
-	var abGUI = folder2.add( parameters, 'ab' ).name("THREE.AdditiveBlending").listen();
-	abGUI.onChange( function(value) { 
-		if (value)
-		{
-			nbGUI.setValue(false);
-			moonGlow.material.blending = THREE.AdditiveBlending; 
-			crateGlow.material.blending = THREE.AdditiveBlending;
-		}
-	});
-	folder2.open();
-
-    // toggle mesh visibility
-	var folder3 = gui.addFolder('Miscellaneous');
-	var mvGUI = folder3.add( parameters, 'mv' ).name("Meshes-Visible").listen();
-	mvGUI.onChange( function(value) { 
-		moon.visible = value; 
-		crate.visible = value;
-	});
-	folder3.open();
-			
-			*/
-		}
-		function RunSimulation()
-		{
-			var domaindim = parseFloat($('#domaindim').val());
-			var coilloops = parseFloat($('#coilloops').val());
-			var coilsegments = parseFloat($('#coilsegs').val());
-			var stepx = parseFloat($('#domain_step_x').val());
-			var stepy = parseFloat($('#domain_step_y').val());
-			var stepz = parseFloat($('#domain_step_z').val());
-			
 			ProtoMag.Sim({
-				dim : domaindim, 
-				loops : coilloops,
-				segs : coilsegments,
-				stepx : stepx, 
-				stepy : stepy, 
-				stepz : stepz,
+				dim : Math.ceil(model.domain.dimension), 
+				loops : Math.ceil(model.coil.loops),
+				segs : Math.ceil(model.coil.segments),
+				stepx : model.domain.stepx, 
+				stepy : model.domain.stepy, 
+				stepz : model.domain.stepz,
 				});
 		}
 
 
-		function RunVisualization()
+		function RunVisualization(model)
 		{
 			var canvasElement = document.getElementById("canvas");
 			
-			
-			
-			var cameraX = parseFloat($('#camera_x').val());
-			var cameraY = parseFloat($('#camera_y').val());
-			var cameraZ = parseFloat($('#camera_z').val());
-			var rotX = parseFloat($('#camera_rotx').get(0).value);
-			var rotY = parseFloat($('#camera_roty').get(0).value);
-			var rotZ = parseFloat($('#camera_rotz').get(0).value);
-			var fieldType = parseFloat($('#fieldtype').get(0).value);
-			var showNormaizedField = $('#normalized').prop('checked');
-
-			//console.log($('input:radio[name=cameratype]:checked').val());
-			var isCameraOrthoView = $('input:radio[name=cameratype]:checked').val() === 'Orthogonal' ? true : false;
-
-			var sliderCutterZ = parseFloat($('#sliderfieldcutter').val());
 
 			var scene = new THREE.Scene();
-			//var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-			//var camera = new THREE.OrthographicCamera( window.innerWidth / - 2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / - 2, 0.1, 100 );
-			var camera = null;
 
-			if(isCameraOrthoView)
+			var camera = null;
+			if(model.camera.type == 0)
 				camera = new THREE.OrthographicCamera( -5, 5, 5, -5, 0.1, 1000 );
 			else
 				camera = new THREE.PerspectiveCamera( 75, canvasElement.clientWidth / canvasElement.clientHeight, 0.1, 100 );
 
-			camera.position.x = cameraX;
-			camera.position.y = cameraY;
-			camera.position.z = cameraZ;
-			
-			
-			//ProtoMag.RotX = rotX == 0 ? 0 : pi/rotX;
-			//ProtoMag.RotY = rotY == 0 ? 0 : pi/rotY;;
-			//ProtoMag.RotZ = rotZ == 0 ? 0 : pi/rotZ;;
-	   				
-			rotX = rotX == 0 ? 0 : pi/rotX;
-			rotY = rotY == 0 ? 0 : pi/rotY;;
-			rotZ = rotZ == 0 ? 0 : pi/rotZ;;
-
+			camera.position.x = 0;
+			camera.position.y = 0;
+			camera.position.z = 15;
 			
 			var renderer = null;
-			if (window.WebGLRenderingContext)
+			if (window.WebGLRenderingContext && !model.ForceDisableWebGL)
 			{
 				renderer = new THREE.WebGLRenderer({canvas:canvasElement});
 			}
@@ -428,25 +272,24 @@
 				return;
 			}
 
-			//if(ProtoMag.root === undefined)
 			var rootNode = new THREE.Object3D();
 			
 			//show field
-			ProtoMag.showVectorField(rootNode,fieldType,showNormaizedField,mesh,UVW,sliderCutterZ);
+			ProtoMag.showVectorField(
+							rootNode,
+							model.field.type,
+							model.field.normalized,
+							mesh,
+							UVW,
+							model.field.cutter);
 				
 			//show coil
 			ProtoMag.showLineSegments(rootNode,coil);
-				
+			
+			//ProtoMag.root = rootNode;	
 			scene.add(rootNode);
 			
-			//ProtoMag.root = rootNode;
 			
-			rootNode.rotation.x = rotX;
-			rootNode.rotation.y = rotY;
-			rootNode.rotation.z = rotZ;
-			
-			
-			//http://stackoverflow.com/questions/18347256/trackballcontrols-in-three-js
 			//http://threejs.org/examples/misc_controls_trackball.html
 			var controls = new THREE.TrackballControls(camera,renderer.domElement);
 			controls.rotateSpeed = 1.0;
@@ -462,8 +305,7 @@
 			ProtoMag.controls = controls;
 			
 			
-			//Render Scene
-			//renderer.render(scene, camera);			
+			//Render Scene			
 			ProtoMag.renderer = renderer;
 			ProtoMag.camera = camera;
 			ProtoMag.scene = scene;			
@@ -472,8 +314,6 @@
 		
 		function Animate()
 		{
-		
-		//http://carvisualizer.plus360degrees.com/threejs/js/RequestAnimationFrame.js
 			Render();
 			requestAnimationFrame(Animate);
 		}
@@ -483,7 +323,6 @@
 			ProtoMag.renderer.render(ProtoMag.scene, ProtoMag.camera);
 			ProtoMag.controls.update();
 		}
-
 		</script>
 
 
@@ -673,7 +512,7 @@
 				{
 					for(k = 0; k < zgvL; k++)
 					{
-						if(cutZ < 0 || k == cutZ)
+						if(cutZ < 1 || k == cutZ)
 						{
 						
 						
@@ -997,154 +836,15 @@
 
     </head>
     <body>
-
 		<header>
 			<div id="divHelloWorld">Welcome to ProtoMag</div>
 			<div id="progressbar_container"><div id="progressbar"></div></div>		
         </header>
-<table>
-<tr>
-<td width="400px">
 
-		<div><div id="SL_button" class="ImTranslatorLogo" style="display: none;"></div><div id="SL_shadow_translation_result2" style="display: none;"></div><div id="SL_shadow_translator" style="display: none;"><div id="SL_planshet"><div id="SL_TB"><div class="ImTranslatorLogo"></div><table cellspacing="1" border="0" id="SL_tables"><tbody><tr><td class="SL_td" align="left" width="20%"><div id="SL_lng_from">English&nbsp;»</div></td><td class="SL_td" align="left" width="20%"><select id="SL_lng_to"><option value="af">Afrikaans</option><option value="sq">Albanian</option><option value="ar">Arabic</option><option value="hy">Armenian</option><option value="az">Azerbaijani</option><option value="eu">Basque</option><option value="bn">Bengali</option><option value="be">Belarusian</option><option value="bg">Bulgarian</option><option value="ca">Catalan</option><option value="zh-CN">Chinese&nbsp;(Simp)</option><option value="zh-TW">Chinese&nbsp;(Trad)</option><option value="hr">Croatian</option><option value="cs">Czech</option><option value="da">Danish</option><option value="nl">Dutch</option><option value="en">English</option><option value="eo">Esperanto</option><option value="et">Estonian</option><option value="tl">Filipino</option><option value="fi">Finnish</option><option value="fr">French</option><option value="gl">Galician</option><option value="ka">Georgian</option><option value="de">German</option><option value="el">Greek</option><option value="gu">Gujarati</option><option value="ht">Haitian&nbsp;Creole</option><option value="iw">Hebrew</option><option value="hi">Hindi</option><option value="hu">Hungarian</option><option value="is">Icelandic</option><option value="id">Indonesian</option><option value="ga">Irish</option><option value="it">Italian</option><option value="ja">Japanese</option><option value="kn">Kannada</option><option value="ko">Korean</option><option value="lo">Lao</option><option value="la">Latin</option><option value="lv">Latvian</option><option value="lt">Lithuanian</option><option value="mk">Macedonian</option><option value="ms">Malay</option><option value="mt">Maltese</option><option value="no">Norwegian</option><option value="fa">Persian</option><option value="pl">Polish</option><option value="pt">Portuguese</option><option value="ro">Romanian</option><option value="ru">Russian</option><option value="sr">Serbian</option><option value="sk">Slovak</option><option value="sl">Slovenian</option><option selected="" value="es">Spanish</option><option value="sw">Swahili</option><option value="sv">Swedish</option><option value="ta">Tamil</option><option value="te">Telugu</option><option value="th">Thai</option><option value="tr">Turkish</option><option value="uk">Ukrainian</option><option value="ur">Urdu</option><option value="vi">Vietnamese</option><option value="cy">Welsh</option><option value="yi">Yiddish</option></select></td><td class="SL_td" width="13%" align="center">&nbsp;</td><td class="SL_td" width="8%" align="center"><div id="SL_TTS_voice" title="Listen to the translation"></div></td><td class="SL_td" width="8%" align="center"><div class="SL_copy_hand" id="SL_copy" title="Select text"></div></td><td class="SL_td" width="8%" align="center"><div class="SL_font_off" id="SL_bbl_font" title="Font size"></div></td><td class="SL_td" width="8%" align="center"><a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/history.html" target="_blank"><div class="SL_TH" title="Translation history"></div></a></td><td class="SL_td" width="5%"></td><td class="SL_td" width="8%" align="right"><div class="SL_pin_off" id="SL_pin" title="Pin pup-up bubble"></div></td></tr></tbody></table></div></div><div id="SL_shadow_translation_result"></div><div id="SL_bbl_donate" title="Make a small contribution"></div><div id="SL_Balloon_options"><a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/feedback.html" class="SL_options" title="Feedback" target="_blank">Feedback</a>&nbsp;:&nbsp;<a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/history.html" class="SL_options" title="Translation history" target="_blank">History</a>&nbsp;:&nbsp;<a href="chrome-extension://noaijdpnepcgjemiklgfkcfbkokogabh/options-bbl.html" target="_blank" class="SL_options" title="Show options">Options</a></div></div></div>
-		
-		<form novalidate>
-			<!--<input name="q" placeholder="Go to a Website">-->
-			<ul id="maintoolbar">
-				<li>
-					<fieldset class="fields">
-						<legend>Camera Type:</legend>
-						<input id="cameratype0" type="radio" name="cameratype" value="Orthogonal" checked>Orthogonal
-						</br>
-						<input type="radio" name="cameratype" value="Prespective">Prespective
-					</fieldset>
-				</li>
-				<li>
-					<fieldset class="fields">
-						<legend>Camera Control:</legend>
-						<ul class="infield_h">
-							<li>
-								<ul class="infield_v">
-									<li>
-										<label for="camera_x">TX:</label>
-										<input id="camera_x" type="number" min="-10" max="10" step="1" value="0" />
-									</li>
-									<li>
-
-										<label for="camera_x">TY:</label>
-										<input id="camera_y" type="number" min="-10" max="10" step="1" value="0" />
-									</li>
-									<li>
-										<label for="camera_x">TZ:</label>
-										<input id="camera_z" type="number" min="-40" max="40" step="1" value="15" />
-									</li>
-								</ul>
-							</li>
-							<li>
-								<ul class="infield_v">
-									<li>
-										<label for="camera_rotx">RX:</label>
-										<select id="camera_rotx">
-										  <option value="0" selected>0</option>
-										  <option value="1">PI</option>
-										  <option value="2">PI/2</option>
-										  <option value="4">PI/4</option>
-										  <option value="8">PI/8</option>
-										</select>
-									</li>
-									<li>
-										<label for="camera_roty">RY:</label>
-										<select id="camera_roty">
-										  <option value="0" selected>0</option>
-										  <option value="1">PI</option>
-										  <option value="2">PI/2</option>
-										  <option value="4">PI/4</option>
-										  <option value="8">PI/8</option>
-										</select>
-									</li>
-									<li>
-										<label for="camera_rotz">RZ:</label>
-										<select id="camera_rotz">
-										  <option value="0" selected>0</option>
-										  <option value="1">PI</option>
-										  <option value="2">PI/2</option>
-										  <option value="4">PI/4</option>
-										  <option value="8">PI/8</option>
-										</select>
-									</li>
-									<li class="set_camera_buttons">
-									<input type="button" id="set_camerax" value="x">
-									<input type="button" id="set_cameray" value="y">
-									<input type="button" id="set_cameraz" value="z">
-									</li>
-								</ul>
-							</li>
-						</ul>
-					</fieldset>
-				</li>
-				<li>
-					<fieldset class="fields">
-						<legend>Domain:</legend>
-						<ul>
-							<li>
-								<label for="coilloops">Wire Loops :</label>
-								<input id="coilloops" type="number" min="1" max="1000" step="10" value="1" />
-							</li>
-							<li>
-								<label for="coilsegs">Wire Segments :</label>
-								<input id="coilsegs" type="number" min="1" max="100" step="1" value="16" />
-							</li>
-							<li>
-								<label for="domaindim">Grid NxNxN :</label>
-								<input id="domaindim" type="number" min="1" max="20" step="1" value="7" />
-							</li>
-							<li>
-								<label for="domain_step_x">Grid Step X :</label>
-								<input id="domain_step_x" type="number" min="0.1" max="10" step="0.25" value="0.25" />
-							</li>
-							<li>
-								<label for="domain_step_y">Grid Step Y :</label>
-								<input id="domain_step_y" type="number" min="0.1" max="10" step="0.25" value="0.25" />
-							</li>
-							<li>
-								<label for="domain_step_z">Grid Step Z :</label>
-								<input id="domain_step_z" type="number" min="0.1" max="10" step="0.5" value="5" />
-							</li>
-							
-						</ul>
-					</fieldset>
-				</li>
-				<li>
-					<fieldset class="fields">
-						<legend>Mag Field:</legend>
-							<label for="fieldtype">Type:</label>
-							<select id="fieldtype">
-							  <option value="0" selected>Cones</option>
-							  <option value="1">Arrows</option>
-							  <option value="2">Spheres</option>
-							</select>
-							</br>
-							<label for="sliderfieldcutter">Cut on Z:</label>
-							<input id="sliderfieldcutter" type="range" min="-1" max="7" step="1" value="-1" />
-							</br>
-							<input id="normalized" type="checkbox"  value="true">Normalized L</input>
-					</fieldset>
-				</li>
-				<li>
-					<input id="gosim" type="button" value="GO Sim" />
-					<input id="govis" type="button" value="GO Vis" />
-				</li>
-			</ul>
-		</form>
-</td>
-<td>
        <canvas id="canvas" width="800" height="600"></canvas>
-</td>
-</tr>
-</table>
+
 
 		<footer>
 		Copyright 2013 Petar Petrov (www.ppetrov.net)
 		</footer>
-    </body>
 </html>

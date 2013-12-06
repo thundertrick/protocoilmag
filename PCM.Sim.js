@@ -173,7 +173,7 @@ ProtoMag.showVectorField = function(node,fieldType,normalized,vecPos,vecDir,cutZ
 		{
 			for(k = 0; k < zgvL; k++)
 			{
-				if(cutZ < 0 || k == cutZ)
+				if(cutZ < 1 || k == cutZ)
 				{
 				
 				
@@ -198,26 +198,26 @@ ProtoMag.showVectorField = function(node,fieldType,normalized,vecPos,vecDir,cutZ
 						var material = new THREE.MeshBasicMaterial( { color: color } );
 						
 						mesh = new THREE.Mesh( geometry, material );
+
+						mesh.position = new THREE.Vector3(vecPos[i][j][k][0],
+														vecPos[i][j][k][1],
+														vecPos[i][j][k][2]);
+														
+						ProtoMag.setDir(mesh, 
+							new THREE.Vector3(vecNorm[i][j][k][0],
+											vecNorm[i][j][k][1],
+											vecNorm[i][j][k][2]));
 						
-						//mesh.doubleSided = true;
-						
-						mesh.position = new THREE.Vector3(vecPos[i][j][k][0],vecPos[i][j][k][1],vecPos[i][j][k][2]);
-						//arrow.lookAt(new THREE.Vector3(vecNorm[i][j][k][0],vecNorm[i][j][k][1],vecNorm[i][j][k][2]));
-						
-						ProtoMag.setDir(mesh,new THREE.Vector3(vecNorm[i][j][k][0],vecNorm[i][j][k][1],vecNorm[i][j][k][2]));
-						
-					}
-				
-					if(fieldType == 1)
+					}			
+					else if(fieldType == 1)
 					{
 						mesh = new THREE.ArrowHelper(
 							new THREE.Vector3(vecNorm[i][j][k][0],vecNorm[i][j][k][1],vecNorm[i][j][k][2]), 
 							new THREE.Vector3(vecPos[i][j][k][0],vecPos[i][j][k][1],vecPos[i][j][k][2]),
 							mag + 0.01,
 							color);
-					}
-				
-					if(fieldType == 2)
+					}				
+					else if(fieldType == 2)
 					{	
 
 						var rad = ( mag / MinMax.max ) * 0.1 + 0.01 ;// Math.min(mag * 10.5, 1.0);

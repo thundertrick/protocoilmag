@@ -8,10 +8,11 @@
 		<![endif]-->
         
         <script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
-		<script type="text/javascript" src="js//three.min.js"></script>
+		<script type="text/javascript" src="js/three.min.js"></script>
 		<script type="text/javascript" src="js/TrackballControls.js"></script>
 		<script type="text/javascript" src="js/numeric-1.2.6.min.js"></script>
 		<script type="text/javascript" src="js/dat.gui.min.js"></script>
+		<!--<script type="text/javascript" src="js/requestAnimation.js"></script>-->
 		
 		<!-- NAMESPACES IN JS -->
 		<script type="text/javascript" src="js/ns.js"></script>
@@ -30,23 +31,54 @@
 		//holly Pi
 		pi = Math.atan(1)*4;
 		
+		//canvas = document.getElementById("canvas");
+		//scene = new THREE.Scene();
+		
 		var model = 
 		{
-			DN : 7,
-			DX : 1.0,
-			DY : 1.0,
-			DZ : 0.6,
-			WL : 1,
-			CS : 12,
-			ForceDisableWebGL : false,
-			OrthoCamera : true,
-			FieldNormalized: true,
-			FieldCutter : 0,
-			FieldType : 0,
-			ResetCamera : function() {},
-			Simulate : function() {},
+			camera :
+			{
+				type : 0
+			},
+			domain :
+			{
+				dimension : 7,
+				stepx : 1.0,
+				stepy : 1.0,
+				stepz : 0.6
+			},
+			coil:
+			{			
+				loops : 1,
+				segments : 12
+			},
+			field:
+			{
+				type: 0,
+				normalized: true,
+				cutter: 0
+			},
+			colormap : 
+			{
+				cc1: "#ffae23"
+			},
 			
-			colormap1 : "#ffae23"
+			ForceDisableWebGL : false,
+			
+
+			ResetCamera : function() 
+			{
+				RunVisualization(this);
+			},
+			Simulate : function() 
+			{ 
+				RunSimulation(this);
+				RunVisualization(this);
+			},
+			Visualize : function()
+			{
+				RunVisualization(this);
+			}
 			
 			//this.color0 = "#ffae23"; // CSS string
 			//this.color1 = [ 0, 128, 255 ]; // RGB array
@@ -54,12 +86,6 @@
 			//this.color3 = { h: 350, s: 0.9, v: 0.3 }; // Hue, saturation, value
 
 		};
-
-		function setProgress(progress)
-		{           
-			var progressBarWidth =progress*$("#progressbar_container").width()/ 100;  
-			$("#progressbar").width(progressBarWidth).html(progress + "% ");
-		}
 		
 		$(document).ready(function(){
 
@@ -71,117 +97,97 @@
 
 		});
 
+		function setProgress(progress)
+		{           
+			var progressBarWidth =progress*$("#progressbar_container").width()/ 100;  
+			$("#progressbar").width(progressBarWidth).html(progress + "% ");
+		}
+	
 		function loadGUI( model)
-		{
-			gui = new dat.GUI();
+		{		
+			gui = new dat.GUI();//{load:model,preset:"Default"});
+			
 			
 			//GUI TAB: Camera
 			var guiTabCamera = gui.addFolder('Camera');
-			guiTabCamera.add(model, 'OrthoCamera', { Orthogonal: true, Perspective : false }).name("Type");
+			guiTabCamera.add(model.camera, 'type', { Orthogonal: 0, Perspective : 1 }).name("Type");
 			guiTabCamera.add(model, 'ForceDisableWebGL').name("Force NO WebGL");
 			
 			//GUI TAB: Domian Model
 			var guiTabDomain = gui.addFolder('Domain');
-			var guiDN = guiTabDomain.add( model, 'DN' ).min(7).max(50).step(1).name("Dimension").listen();
+			var guiDN = guiTabDomain.add( model.domain, 'dimension' ).min(7).max(50).step(1.0).name("Dimension");
 			guiDN.onChange( function(value) { 
-				//moonGlow.material.uniforms[ "c" ].value = parameters.c; 
-				//crateGlow.material.uniforms[ "c" ].value = parameters.c; 
+				guiFC.max(value);
 			});
-			var guiDX = guiTabDomain.add( model, 'DX' ).min(0.1).max(10).step(1).name("Spacing X").listen();
-			var guiDY = guiTabDomain.add( model, 'DY' ).min(0.1).max(10).step(1).name("Spacing Y").listen();
-			var guiDZ = guiTabDomain.add( model, 'DZ' ).min(0.1).max(10).step(1).name("Spacing Z").listen();
+			guiTabDomain.add( model.domain, 'stepx' ).min(0.1).max(10).step(1).name("Spacing X");
+			guiTabDomain.add( model.domain, 'stepy' ).min(0.1).max(10).step(1).name("Spacing Y");
+			guiTabDomain.add( model.domain, 'stepz' ).min(0.1).max(10).step(1).name("Spacing Z");
+
 
 			//GUI TAB : Coil Model
 			var guiTabCoil = gui.addFolder('Coil');
-			var guiWL = guiTabCoil.add( model, 'WL' ).min(1).max(1000).step(10).name("Wire Loops").listen();
-			var guiCS = guiTabCoil.add( model, 'CS' ).min(12).max(48).step(1).name("Circle Segments").listen();
+			guiTabCoil.add( model.coil, 'loops' ).min(1).max(1000).step(10).name("Wire Loops");
+			guiTabCoil.add( model.coil, 'segments' ).min(12).max(48).step(1).name("Circle Segments");
 			
 			//GUI TAB : Field Modify
 			var guiTabField= gui.addFolder('Field');
-			guiTabField.add(model, 'FieldType', { Cones: 0, Arrows : 1, Spheres : 2 }).name("Type");			
-			var guiFN= guiTabField.add( model, 'FieldNormalized' ).name("Normalized").listen();
-			var guiFC = guiTabField.add( model, 'FieldCutter' ).min(0).max(16).step(1).name("Cut Slize Z").listen();
+			guiTabField.add(model.field, 'type', { Cones: 0, Arrows : 1, Spheres : 2 }).name("Type");			
+			var guiFN= guiTabField.add( model.field, 'normalized' ).name("Normalized").listen();
+			var guiFC = guiTabField.add( model.field, 'cutter' ).min(0).max(16).step(1).name("Cut On Z").listen();
 			guiFC.onChange( function(value) { 
-
+				Visualize();
 			});
 			
 			//GUI TAB : Color Map
 			var guiTabColorMap = gui.addFolder('Color Map');
-			guiTabColorMap.addColor( model, 'colormap1' ).name("Color 1");
+			guiTabColorMap.addColor( model.colormap, 'cc1' ).name("Control Color 1");
 			
+			// GUI BUTTONS:
 			gui.add( model, 'ResetCamera' ).name("Reset Camera");
 			gui.add( model, 'Simulate' ).name("Simulate");
 			
+			//gui.remember(model);
+			//gui.remember(model.camera);
+			//gui.remember(model.domain);
+			//gui.remember(model.field);
+			//gui.revert();
 		}
-		function RunSimulation()
+		
+		function RunSimulation(model)
 		{
-			var domaindim = parseFloat($('#domaindim').val());
-			var coilloops = parseFloat($('#coilloops').val());
-			var coilsegments = parseFloat($('#coilsegs').val());
-			var stepx = parseFloat($('#domain_step_x').val());
-			var stepy = parseFloat($('#domain_step_y').val());
-			var stepz = parseFloat($('#domain_step_z').val());
-			
+
 			ProtoMag.Sim({
-				dim : domaindim, 
-				loops : coilloops,
-				segs : coilsegments,
-				stepx : stepx, 
-				stepy : stepy, 
-				stepz : stepz,
+				dim : Math.ceil(model.domain.dimension), 
+				loops : Math.ceil(model.coil.loops),
+				segs : Math.ceil(model.coil.segments),
+				stepx : model.domain.stepx, 
+				stepy : model.domain.stepy, 
+				stepz : model.domain.stepz,
 				});
 		}
 
 
-		function RunVisualization()
+		function RunVisualization(model)
 		{
 			var canvasElement = document.getElementById("canvas");
 			
-			
-			
-			var cameraX = parseFloat($('#camera_x').val());
-			var cameraY = parseFloat($('#camera_y').val());
-			var cameraZ = parseFloat($('#camera_z').val());
-			var rotX = parseFloat($('#camera_rotx').get(0).value);
-			var rotY = parseFloat($('#camera_roty').get(0).value);
-			var rotZ = parseFloat($('#camera_rotz').get(0).value);
-			var fieldType = parseFloat($('#fieldtype').get(0).value);
-			var showNormaizedField = $('#normalized').prop('checked');
-
-			//console.log($('input:radio[name=cameratype]:checked').val());
-			var isCameraOrthoView = $('input:radio[name=cameratype]:checked').val() === 'Orthogonal' ? true : false;
-
-			var sliderCutterZ = parseFloat($('#sliderfieldcutter').val());
 
 			var scene = new THREE.Scene();
-			//var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-			//var camera = new THREE.OrthographicCamera( window.innerWidth / - 2, window.innerWidth / 2, window.innerHeight / 2, window.innerHeight / - 2, 0.1, 100 );
-			var camera = null;
 
-			if(isCameraOrthoView)
+			var camera = null;
+			if(model.camera.type == 0)
 				camera = new THREE.OrthographicCamera( -5, 5, 5, -5, 0.1, 1000 );
 			else
 				camera = new THREE.PerspectiveCamera( 75, canvasElement.clientWidth / canvasElement.clientHeight, 0.1, 100 );
 
-			camera.position.x = cameraX;
-			camera.position.y = cameraY;
-			camera.position.z = cameraZ;
-			
-			
-			//ProtoMag.RotX = rotX == 0 ? 0 : pi/rotX;
-			//ProtoMag.RotY = rotY == 0 ? 0 : pi/rotY;;
-			//ProtoMag.RotZ = rotZ == 0 ? 0 : pi/rotZ;;
-	   				
-			rotX = rotX == 0 ? 0 : pi/rotX;
-			rotY = rotY == 0 ? 0 : pi/rotY;;
-			rotZ = rotZ == 0 ? 0 : pi/rotZ;;
-
+			camera.position.x = 0;
+			camera.position.y = 0;
+			camera.position.z = 15;
 			
 			var renderer = null;
-			if (window.WebGLRenderingContext)
+			if (window.WebGLRenderingContext && !model.ForceDisableWebGL)
 			{
-				//renderer = new THREE.WebGLRenderer({canvas:canvasElement});
-				renderer = new THREE.CanvasRenderer({canvas:canvasElement});
+				renderer = new THREE.WebGLRenderer({canvas:canvasElement});
 			}
 			else
 			{
@@ -199,25 +205,24 @@
 				return;
 			}
 
-			//if(ProtoMag.root === undefined)
 			var rootNode = new THREE.Object3D();
 			
 			//show field
-			ProtoMag.showVectorField(rootNode,fieldType,showNormaizedField,mesh,UVW,sliderCutterZ);
+			ProtoMag.showVectorField(
+							rootNode,
+							model.field.type,
+							model.field.normalized,
+							mesh,
+							UVW,
+							model.field.cutter);
 				
 			//show coil
 			ProtoMag.showLineSegments(rootNode,coil);
-				
+			
+			//ProtoMag.root = rootNode;	
 			scene.add(rootNode);
 			
-			//ProtoMag.root = rootNode;
 			
-			rootNode.rotation.x = rotX;
-			rootNode.rotation.y = rotY;
-			rootNode.rotation.z = rotZ;
-			
-			
-			//http://stackoverflow.com/questions/18347256/trackballcontrols-in-three-js
 			//http://threejs.org/examples/misc_controls_trackball.html
 			var controls = new THREE.TrackballControls(camera,renderer.domElement);
 			controls.rotateSpeed = 1.0;
@@ -233,8 +238,7 @@
 			ProtoMag.controls = controls;
 			
 			
-			//Render Scene
-			//renderer.render(scene, camera);			
+			//Render Scene			
 			ProtoMag.renderer = renderer;
 			ProtoMag.camera = camera;
 			ProtoMag.scene = scene;			
