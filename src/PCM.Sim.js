@@ -1,9 +1,173 @@
 //Author: Petar Petrov
-//Credits: Alessandro Masullo
+//Credits: Alessandro Masullo MATLAB Biot-Savart Implementation
 //Matlab Source: http://www.mathworks.nl/matlabcentral/fileexchange/42237-biot-savart-direct-integration-on-a-generic-curve/content/biot_savart.m
 //
 
 var ProtoMag = namespace("DeNaCoR.demo1");
+
+//http://www.codeovertones.com/2011/08/how-to-debug-webworker-threads.html
+ProtoMag.SimWithWorkers = function(model)
+{		
+	this.progress(1);
+
+	var i,j,k;
+	
+
+	//define domain
+	var ND = model.domain.dimension;
+	var stepx = model.domain.stepx;
+	var stepy = model.domain.stepy;
+	var stepz = model.domain.stepz;
+	
+	//var Dom = 	[[-1.1, 1],
+	//			[-1.1, 1],
+	//			[0.1, 10]];
+	
+	var Dom = 	[[-stepx/2 * ND, stepx/2 * ND],
+				[-stepy/2 * ND, stepy/2 * ND],
+				[-stepz/2 * ND, stepz/2 * ND]];
+	
+	// Induction constant
+	var gamma = 1;
+
+	//% Integration step size
+	var ds = 0.1;
+
+	//%% Induction curve
+	var coil = ProtoMag.circleGen(0,0,0,0.5, model.coil.segments);
+	var L = coil;
+	var Nl = model.coil.segments;
+
+
+	//%% Declaration of variables
+	//% Induction vector components B = (U, V, W);
+	var UVW = ProtoMag.createArray(ND, ND, ND, [0,0,0]);
+
+	//% Volume Mesh
+	var mesh = ProtoMag.meshgrid(
+						numeric.linspace(Dom[0][0], Dom[0][1], ND),
+						numeric.linspace(Dom[1][0], Dom[1][1], ND),
+						numeric.linspace(Dom[2][0], Dom[2][1], ND));
+	var step = 1;
+	var final_step = (ND*ND*ND);
+	var steps_per_worker = final_step / 4;
+	var nn = 0;
+	var pp = 0;
+	var workerIDX = 0;
+	var workerData = new Array(4);
+	
+	var workerResults = new Array(4);
+	var workers = new Array(4);
+	
+	for(i = 0; i<4; i++)
+	{
+		workerData[i] = new Array(); 
+		workers[i] = new Worker("src/workerKernel.js");
+	}
+	
+	
+	//decompose input for parallel execute
+	for(i = 0; i<ND; i++){
+		for(j = 0;j<ND;j++){
+			for(k = 0;k<ND;k++){
+				
+				nn++;
+				
+				if(nn > steps_per_worker)
+				{
+					workerIDX++;
+					nn = 0;
+				}
+				
+				workerData[workerIDX].push(mesh[i][j][k]);
+			}
+		}
+	}
+
+
+	for(i = 0; i<4; i++)
+	{
+		workers[i].postMessage({
+			ID: i,
+			points: workerData[i],
+			curve: coil, 
+			params: {
+					loops: model.coil.loops,
+					gamma: gamma,
+					ds : ds,
+					pi : pi
+					},
+			code: 'sim',
+			url: document.location.href
+			});
+		
+		workers[i].onmessage = function(e)
+		{
+			if(e.data.code == 'sim')
+			{
+				workerResults[e.data.ID] = e.data.output;						
+			}
+			
+			if ( e.data.code === 'finished' ) {
+                
+				this.finished = true;
+				
+				for(i = 0; i<4; i++)
+				{
+					if(!workers[i].finished)
+						return;
+				}
+				
+					//compose output from parallel execute
+				var nn = 0;
+				var workerIDX = 0;
+				for(i = 0; i<ND; i++){
+					for(j = 0;j<ND;j++){
+						for(k = 0;k<ND;k++){
+							
+							UVW[i][j][k] = workerResults[workerIDX][nn];
+							
+							nn++;
+						
+							if(nn > steps_per_worker)
+							{
+								workerIDX++;
+								nn = 0;
+							}							
+						}
+					}
+				}
+				
+				ProtoMag.CoildMesh = coil;
+				ProtoMag.Mesh = mesh;
+				ProtoMag.VectorField = UVW;
+				
+				ProtoMag.Vis(model);
+			}
+			
+			if(e.data.code == 'debug')
+				console.log(e.data.message);
+			
+			if(e.data.code == 'progress')
+			{
+				//this.progress(pp++);
+				var p = Math.floor( ( step++ / final_step ) * 100 );
+				
+				if( p != pp)
+				{
+					pp = p;
+					ProtoMag.progress(p);
+					console.log("progress: "+p);
+				}
+			}
+			
+		};
+		workers[i].onerror = function(event)
+		{
+			throw new Error(event.message + " (" + event.filename + ":" + event.lineno + ")");
+		};
+	}
+}
 
 ProtoMag.Sim = function(args)
 {
@@ -150,11 +314,103 @@ ProtoMag.Sim = function(args)
 		ProtoMag.progress(100);
 
 
-		ProtoMag.CoildMesh = coil;
-		ProtoMag.Mesh = mesh;
-		ProtoMag.VectorField = UVW;
+		this.CoildMesh = coil;
+		this.Mesh = mesh;
+		this.VectorField = UVW;
 }
+ProtoMag.Vis = function(model)
+{
+	var canvasElement = document.getElementById("canvas");
+	
 
+	this.scene = new THREE.Scene();
+
+	//var camera = null;
+	if(model.camera.type == 0)
+		this.camera = new THREE.OrthographicCamera( -5, 5, 5, -5, 0.1, 1000 );
+	else
+		this.camera = new THREE.PerspectiveCamera( 75, canvasElement.clientWidth / canvasElement.clientHeight, 0.1, 100 );
+
+	this.camera.position.x = 0;
+	this.camera.position.y = 0;
+	this.camera.position.z = 15;
+	
+	//var renderer = null;
+	if (window.WebGLRenderingContext && !model.ForceDisableWebGL)
+	{
+		this.renderer = new THREE.WebGLRenderer({canvas:canvasElement});
+	}
+	else
+	{
+		this.renderer = new THREE.CanvasRenderer({canvas:canvasElement});		
+	}
+	this.renderer.setSize( canvasElement.clientWidth, canvasElement.clientHeight );
+	
+	//var mesh = ProtoMag.Mesh;
+	//var UVW = ProtoMag.VectorField;
+	//var coil = ProtoMag.CoildMesh;
+
+	if(this.Mesh === undefined || this.VectorField === undefined)
+	{
+		ProtoMag.log('cannot run visualization, run simulation first');
+		return;
+	}
+
+	this.rootNode = new THREE.Object3D();
+	
+	//show field
+	ProtoMag.showVectorField(
+					this.rootNode,
+					model.field.type,
+					model.field.normalized,
+					this.Mesh,
+					this.VectorField,
+					model.field.cutter);
+		
+	//show coil
+	ProtoMag.showLineSegments(this.rootNode,this.CoildMesh);
+	
+	//ProtoMag.root = rootNode;	
+	this.scene.add(this.rootNode);
+	
+	
+	//http://threejs.org/examples/misc_controls_trackball.html
+	var controls = new THREE.TrackballControls(this.camera,this.renderer.domElement);
+	controls.rotateSpeed = 1.0;
+	controls.zoomSpeed = 1.2;
+	controls.panSpeed = 0.8;
+	controls.noZoom = false;
+	controls.noPan = false;
+	controls.staticMoving = true;
+	controls.dynamicDampingFactor = 0.3;
+	controls.keys = [ 65, 83, 68 ];
+	//controls.addEventListener( 'change', Render );
+	this.controls = controls;
+	
+	
+	//Render Scene			
+	//ProtoMag.renderer = renderer;
+	//ProtoMag.camera = camera;
+	//ProtoMag.scene = scene;			
+	this.Animate();
+}
+ProtoMag.ShowVectorFieldCutz = function(model)
+{
+	this.scene.remove(this.rootNode);
+	this.rootNode = new THREE.Object3D();
+	//show field
+	ProtoMag.showVectorField(
+					this.rootNode,
+					model.field.type,
+					model.field.normalized,
+					this.Mesh,
+					this.VectorField,
+					model.field.cutter);
+		
+	//show coil
+	ProtoMag.showLineSegments(this.rootNode,this.CoildMesh);
+	this.scene.add(this.rootNode);
+}
 ProtoMag.showVectorField = function(node,fieldType,normalized,vecPos,vecDir,cutZ)
 {
 	var xgvL = vecPos.length;
@@ -212,8 +468,12 @@ ProtoMag.showVectorField = function(node,fieldType,normalized,vecPos,vecDir,cutZ
 					else if(fieldType == 1)
 					{
 						mesh = new THREE.ArrowHelper(
-							new THREE.Vector3(vecNorm[i][j][k][0],vecNorm[i][j][k][1],vecNorm[i][j][k][2]), 
-							new THREE.Vector3(vecPos[i][j][k][0],vecPos[i][j][k][1],vecPos[i][j][k][2]),
+							new THREE.Vector3(vecNorm[i][j][k][0],
+											vecNorm[i][j][k][1],
+											vecNorm[i][j][k][2]), 
+							new THREE.Vector3(vecPos[i][j][k][0],
+											vecPos[i][j][k][1],
+											vecPos[i][j][k][2]),
 							mag + 0.01,
 							color);
 					}				
@@ -228,7 +488,9 @@ ProtoMag.showVectorField = function(node,fieldType,normalized,vecPos,vecDir,cutZ
 						
 						//centre, radius
 						var mesh = new THREE.Mesh( geometry, material);
-						mesh.position = new THREE.Vector3(vecPos[i][j][k][0],vecPos[i][j][k][1],vecPos[i][j][k][2]);
+						mesh.position = new THREE.Vector3(vecPos[i][j][k][0],
+														vecPos[i][j][k][1],
+														vecPos[i][j][k][2]);
 					}
 					
 					node.add( mesh );
@@ -282,12 +544,12 @@ ProtoMag.getColorMapValue = function (MinMax, val)
 	
 	return ProtoMag.ColorMap[index];			
 }
-   
+
+// dir is assumed to be normalized   
 ProtoMag.setDir = function (mesh,dir)
 {
-var axis = new THREE.Vector3();
-var radians;
-// dir is assumed to be normalized
+	var axis = new THREE.Vector3();
+	var radians;
 
 	if ( dir.y > 0.99999 ) {
 
@@ -334,27 +596,6 @@ ProtoMag.showLineSegments = function(node,pointwise)
 	//figure(1)
 }
 
-ProtoMag.drawGrid = function()
-{
-	var canvas = document.getElementById("canvas");
-	var context = canvas.getContext("2d");
-	//b_context.fillRect(50, 25, 150, 100);
-
-	console.log('canvas.height:'+canvas.height);
-
-	for (var x = 0.5; x < canvas.width; x += 10) {
-	  context.moveTo(x, 0);
-	  context.lineTo(x, canvas.height);
-	}
-
-	for (var y = 0.5; y < canvas.height; y += 10) {
-	  context.moveTo(0, y);
-	  context.lineTo(canvas.width, y);
-	}
-	context.strokeStyle = "#eee";
-	context.stroke();
-
-}
 
 
 ProtoMag.meshgrid = function(xgv,ygv,zgv)
@@ -490,4 +731,16 @@ ProtoMag.circleGen = function(x,y,z,r,nsegments)
 	circlexy[nsegments] = circlexy[0];
 
 	return circlexy;
+}
+
+ ProtoMag.Animate = function()
+{
+	ProtoMag.Render();
+	requestAnimationFrame(ProtoMag.Animate);
+}
+		
+ProtoMag.Render = function()
+{
+	ProtoMag.renderer.render(ProtoMag.scene, ProtoMag.camera);
+	ProtoMag.controls.update();
 }

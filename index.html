@@ -4,21 +4,22 @@
 		<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 		<title>DeNaCoR :: ProtoMag v0.2</title>
 		<!--[if lt IE 9]>
-			<script src="js/excanvas.js"></script>
+			<script src="libs/misc/excanvas.js"></script>
 		<![endif]-->
         
-        <script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
-		<script type="text/javascript" src="js/three.min.js"></script>
-		<script type="text/javascript" src="js/TrackballControls.js"></script>
-		<script type="text/javascript" src="js/numeric-1.2.6.min.js"></script>
-		<script type="text/javascript" src="js/dat.gui.min.js"></script>
+        <script type="text/javascript" src="libs/jquery/jquery-1.10.2.min.js"></script>
+		<script type="text/javascript" src="libs/three/three.min.js"></script>
+		<script type="text/javascript" src="libs/three/TrackballControls.js"></script>
+		<script type="text/javascript" src="libs/numeric/numeric-1.2.6.js"></script>
+		<script type="text/javascript" src="libs/dat.gui/dat.gui.min.js"></script>
 		<!--<script type="text/javascript" src="js/requestAnimation.js"></script>-->
 		
 		<!-- NAMESPACES IN JS -->
-		<script type="text/javascript" src="js/ns.js"></script>
+		<script type="text/javascript" src="src/ns.js"></script>
 		
 		<!-- SIMULATOR -->
-		<script type="text/javascript" src="PCM.Sim.js"></script>
+		<script type="text/javascript" src="src/PCM.Sim.js"></script>
+		<script type="text/javascript" src="src/workerKernel.js"></script>
 		
 		<!-- CSS -->
 		<link rel=stylesheet href="css/jquery-ui.css" />		
@@ -63,21 +64,29 @@
 				cc1: "#ffae23"
 			},
 			
-			ForceDisableWebGL : false,
-			
+			ForceDisableWebGL : false,			
 
 			ResetCamera : function() 
 			{
-				RunVisualization(this);
+				ProtoMag.Vis(this);
 			},
 			Simulate : function() 
 			{ 
-				RunSimulation(this);
-				RunVisualization(this);
+				//RunSimulation(this);
+				ProtoMag.SimWithWorkers(this);
+				//RunVisualization(this);
+				//ProtoMag.Vis(this);
+				//Animate();
 			},
 			Visualize : function()
 			{
-				RunVisualization(this);
+				//RunVisualization(this);
+				ProtoMag.Vis(this);
+				//Animate();
+			},
+			CutFieldOnZ : function()
+			{
+				ProtoMag.ShowVectorFieldCutz(this);
 			}
 			
 			//this.color0 = "#ffae23"; // CSS string
@@ -92,6 +101,8 @@
 			console.log(' Page Loaded ');
 			
 			loadGUI(model);
+			
+			console.log(' GUI Loaded ');
 			
 			$('#divHelloWorld').fadeIn(4000);
 
@@ -116,6 +127,7 @@
 			//GUI TAB: Domian Model
 			var guiTabDomain = gui.addFolder('Domain');
 			var guiDN = guiTabDomain.add( model.domain, 'dimension' ).min(7).max(50).step(1.0).name("Dimension");
+			
 			guiDN.onChange( function(value) { 
 				guiFC.max(value);
 			});
@@ -134,9 +146,10 @@
 			guiTabField.add(model.field, 'type', { Cones: 0, Arrows : 1, Spheres : 2 }).name("Type");			
 			var guiFN= guiTabField.add( model.field, 'normalized' ).name("Normalized").listen();
 			var guiFC = guiTabField.add( model.field, 'cutter' ).min(0).max(16).step(1).name("Cut On Z").listen();
-			guiFC.onChange( function(value) { 
-				Visualize();
+			guiFC.onChange( function(val) { 
+				model.CutFieldOnZ();
 			});
+			guiFC.max(model.domain.dimension);
 			
 			//GUI TAB : Color Map
 			var guiTabColorMap = gui.addFolder('Color Map');
@@ -153,9 +166,9 @@
 			//gui.revert();
 		}
 		
+		/*
 		function RunSimulation(model)
 		{
-
 			ProtoMag.Sim({
 				dim : Math.ceil(model.domain.dimension), 
 				loops : Math.ceil(model.coil.loops),
@@ -165,97 +178,7 @@
 				stepz : model.domain.stepz,
 				});
 		}
-
-
-		function RunVisualization(model)
-		{
-			var canvasElement = document.getElementById("canvas");
-			
-
-			var scene = new THREE.Scene();
-
-			var camera = null;
-			if(model.camera.type == 0)
-				camera = new THREE.OrthographicCamera( -5, 5, 5, -5, 0.1, 1000 );
-			else
-				camera = new THREE.PerspectiveCamera( 75, canvasElement.clientWidth / canvasElement.clientHeight, 0.1, 100 );
-
-			camera.position.x = 0;
-			camera.position.y = 0;
-			camera.position.z = 15;
-			
-			var renderer = null;
-			if (window.WebGLRenderingContext && !model.ForceDisableWebGL)
-			{
-				renderer = new THREE.WebGLRenderer({canvas:canvasElement});
-			}
-			else
-			{
-				renderer = new THREE.CanvasRenderer({canvas:canvasElement});		
-			}
-			renderer.setSize( canvasElement.clientWidth, canvasElement.clientHeight );
-			
-			var mesh = ProtoMag.Mesh;
-			var UVW = ProtoMag.VectorField;
-			var coil = ProtoMag.CoildMesh;
-
-			if(mesh === undefined || UVW === undefined)
-			{
-				ProtoMag.log('cannot run visualization, run simulation first');
-				return;
-			}
-
-			var rootNode = new THREE.Object3D();
-			
-			//show field
-			ProtoMag.showVectorField(
-							rootNode,
-							model.field.type,
-							model.field.normalized,
-							mesh,
-							UVW,
-							model.field.cutter);
-				
-			//show coil
-			ProtoMag.showLineSegments(rootNode,coil);
-			
-			//ProtoMag.root = rootNode;	
-			scene.add(rootNode);
-			
-			
-			//http://threejs.org/examples/misc_controls_trackball.html
-			var controls = new THREE.TrackballControls(camera,renderer.domElement);
-			controls.rotateSpeed = 1.0;
-			controls.zoomSpeed = 1.2;
-			controls.panSpeed = 0.8;
-			controls.noZoom = false;
-			controls.noPan = false;
-			controls.staticMoving = true;
-			controls.dynamicDampingFactor = 0.3;
-			controls.keys = [ 65, 83, 68 ];
-			//controls.addEventListener( 'change', Render );
-			
-			ProtoMag.controls = controls;
-			
-			
-			//Render Scene			
-			ProtoMag.renderer = renderer;
-			ProtoMag.camera = camera;
-			ProtoMag.scene = scene;			
-			Animate();
-		}
-		
-		function Animate()
-		{
-			Render();
-			requestAnimationFrame(Animate);
-		}
-		
-		function Render()
-		{
-			ProtoMag.renderer.render(ProtoMag.scene, ProtoMag.camera);
-			ProtoMag.controls.update();
-		}
+		*/
 
 	</script>
 
