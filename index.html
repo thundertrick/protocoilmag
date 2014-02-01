@@ -6,36 +6,34 @@
 		<!--[if lt IE 9]>
 			<script src="libs/misc/excanvas.js"></script>
 		<![endif]-->
-        
-        <script type="text/javascript" src="libs/jquery/jquery-1.10.2.min.js"></script>
+
 		<script type="text/javascript" src="libs/three/three.min.js"></script>
 		<script type="text/javascript" src="libs/three/TrackballControls.js"></script>
 		<script type="text/javascript" src="libs/numeric/numeric-1.2.6.js"></script>
 		<script type="text/javascript" src="libs/dat.gui/dat.gui.min.js"></script>
 		<!--<script type="text/javascript" src="js/requestAnimation.js"></script>-->
-		
+
 		<!-- NAMESPACES IN JS -->
 		<script type="text/javascript" src="src/ns.js"></script>
-		
+
 		<!-- SIMULATOR -->
 		<script type="text/javascript" src="src/PCM.Sim.js"></script>
 		<script type="text/javascript" src="src/workerKernel.js"></script>
-		
+
 		<!-- CSS -->
-		<link rel=stylesheet href="css/jquery-ui.css" />		
 		<link rel=stylesheet href="css/main.css" />
 
     </head>
     <body>
 	<script type="text/javascript" >
-		
+
 		//holly Pi
 		pi = Math.atan(1)*4;
-		
+
 		//canvas = document.getElementById("canvas");
 		//scene = new THREE.Scene();
-		
-		var model = 
+
+		var model =
 		{
 			camera :
 			{
@@ -49,7 +47,7 @@
 				stepz : 0.6
 			},
 			coil:
-			{			
+			{
 				loops : 1,
 				segments : 12
 			},
@@ -76,14 +74,14 @@
 				0xFF5C00,
 				0xFF0000
 			],
-			ForceDisableWebGL : false,			
+			ForceDisableWebGL : false,
 
-			ResetCamera : function() 
+			ResetCamera : function()
 			{
 				ProtoMag.Vis(this);
 			},
-			Simulate : function() 
-			{ 
+			Simulate : function()
+			{
 				//RunSimulation(this);
 				ProtoMag.SimWithWorkers(this);
 				//RunVisualization(this);
@@ -100,47 +98,44 @@
 			{
 				ProtoMag.ShowVectorFieldCutz(this);
 			}
-			
+
 			//this.color0 = "#ffae23"; // CSS string
 			//this.color1 = [ 0, 128, 255 ]; // RGB array
 			//this.color2 = [ 0, 128, 255, 0.3 ]; // RGB with alpha
 			//this.color3 = { h: 350, s: 0.9, v: 0.3 }; // Hue, saturation, value
 
 		};
-		
-		$(document).ready(function(){
 
+		document.addEventListener('DOMContentLoaded', function () {
+			document.removeEventListener('DOMContentLoaded', arguments.callee);
+			document.getElementById('fail').style.display = 'none';
 			console.log(' Page Loaded ');
-			
 			loadGUI(model);
-			
 			console.log(' GUI Loaded ');
-			
-			$('#divHelloWorld').fadeIn(4000);
-
 		});
 
 		function setProgress(progress)
-		{           
-			var progressBarWidth =progress*$("#progressbar_container").width()/ 100;  
-			$("#progressbar").width(progressBarWidth).html(progress + "% ");
+		{
+			var progressBar = document.getElementById('progressbar');
+			progressBar.style.width = progress*document.getElementById('progressbar_container').offsetWidth/100 + 'px';
+			progressBar.innerHTML = progress + "%";
 		}
-	
+
 		function loadGUI( model)
-		{		
+		{
 			gui = new dat.GUI();//{load:model,preset:"Default"});
-			
-			
+
+
 			//GUI TAB: Camera
 			var guiTabCamera = gui.addFolder('Camera');
 			guiTabCamera.add(model.camera, 'type', { Orthogonal: 0, Perspective : 1 }).name("Type");
 			guiTabCamera.add(model, 'ForceDisableWebGL').name("Force NO WebGL");
-			
+
 			//GUI TAB: Domian Model
 			var guiTabDomain = gui.addFolder('Domain');
 			var guiDN = guiTabDomain.add( model.domain, 'dimension' ).min(7).max(50).step(1.0).name("Dimension");
-			
-			guiDN.onChange( function(value) { 
+
+			guiDN.onChange( function(value) {
 				guiFC.max(value);
 			});
 			guiTabDomain.add( model.domain, 'stepx' ).min(0.1).max(10).step(1).name("Spacing X");
@@ -152,43 +147,43 @@
 			var guiTabCoil = gui.addFolder('Coil');
 			guiTabCoil.add( model.coil, 'loops' ).min(1).max(1000).step(10).name("Wire Loops");
 			guiTabCoil.add( model.coil, 'segments' ).min(12).max(48).step(1).name("Circle Segments");
-			
+
 			//GUI TAB : Field Modify
 			var guiTabField= gui.addFolder('Field');
-			guiTabField.add(model.field, 'type', { Cones: 0, Arrows : 1, Spheres : 2 }).name("Type");			
+			guiTabField.add(model.field, 'type', { Cones: 0, Arrows : 1, Spheres : 2 }).name("Type");
 			var guiFN= guiTabField.add( model.field, 'normalized' ).name("Normalized").listen();
 			var guiFC = guiTabField.add( model.field, 'cutter' ).min(0).max(16).step(1).name("Cut On Z").listen();
-			guiFC.onChange( function(val) { 
+			guiFC.onChange( function(val) {
 				model.CutFieldOnZ();
 			});
 			guiFC.max(model.domain.dimension);
-			
+
 			//GUI TAB : Color Map
 			var guiTabColorMap = gui.addFolder('Color Map');
 			for (var i = model.colormap.length - 1; i >= 0; i--) {
 				guiTabColorMap.addColor( model.colormap, i ).name("CC " + i.toString());
 			};
-			
+
 			// GUI BUTTONS:
 			gui.add( model, 'ResetCamera' ).name("Reset Camera");
 			gui.add( model, 'Simulate' ).name("Simulate");
-			
+
 			//gui.remember(model);
 			//gui.remember(model.camera);
 			//gui.remember(model.domain);
 			//gui.remember(model.field);
 			//gui.revert();
 		}
-		
+
 		/*
 		function RunSimulation(model)
 		{
 			ProtoMag.Sim({
-				dim : Math.ceil(model.domain.dimension), 
+				dim : Math.ceil(model.domain.dimension),
 				loops : Math.ceil(model.coil.loops),
 				segs : Math.ceil(model.coil.segments),
-				stepx : model.domain.stepx, 
-				stepy : model.domain.stepy, 
+				stepx : model.domain.stepx,
+				stepy : model.domain.stepy,
 				stepz : model.domain.stepz,
 				});
 		}
@@ -197,13 +192,10 @@
 	</script>
 
 		<header>
-			<div id="divHelloWorld">Welcome to ProtoMag</div>
-			<div id="progressbar_container"><div id="progressbar"></div></div>		
-        </header>
-
-       <canvas id="canvas" width="800" height="600"></canvas>
-
-
+			<div id="progressbar_container"><div id="progressbar"></div></div>
+    </header>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div id="fail">Your browser is not supported</div>
 		<footer>
 		Copyright 2013 Petar Petrov (www.ppetrov.net)
 		</footer>

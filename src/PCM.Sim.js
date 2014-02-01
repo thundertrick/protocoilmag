@@ -683,8 +683,7 @@ ProtoMag.log = function(text)
 
 ProtoMag.progress = function(percent)
 {
-   //$("#progressbar").progressbar({ value: percent });
-   setProgress(percent);
+	setProgress(percent);
 }
 
 ProtoMag.crossprod = function(u,v)
