@@ -117,7 +117,9 @@
 		function setProgress(progress)
 		{
 			var progressBar = document.getElementById('progressbar');
-			progressBar.style.width = progress*document.getElementById('progressbar_container').offsetWidth/100 + 'px';
+			var ct = document.getElementById('progressbar_container');
+			// subtract 8 -- that's padding + border -- so that width fits
+			progressBar.style.width = progress*ct.offsetWidth/100 - 8 + 'px';
 			progressBar.innerHTML = progress + "%";
 		}
 
