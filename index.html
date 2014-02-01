@@ -59,11 +59,23 @@
 				normalized: true,
 				cutter: 0
 			},
-			colormap : 
-			{
-				cc1: "#ffae23"
-			},
-			
+			colormap : [
+				//Blues
+				0x0000FF,
+				0x005CFF,
+				0x00B9FF,
+				0x00FFE7,
+				//Greens
+				0x00FF8B,
+				0x00FF2E,
+				0x2EFF00,
+				0x8BFF00,
+				//Yellow-Orange-Red
+				0xE7FF00,
+				0xFFB900,
+				0xFF5C00,
+				0xFF0000
+			],
 			ForceDisableWebGL : false,			
 
 			ResetCamera : function() 
@@ -153,7 +165,9 @@
 			
 			//GUI TAB : Color Map
 			var guiTabColorMap = gui.addFolder('Color Map');
-			guiTabColorMap.addColor( model.colormap, 'cc1' ).name("Control Color 1");
+			for (var i = model.colormap.length - 1; i >= 0; i--) {
+				guiTabColorMap.addColor( model.colormap, i ).name("CC " + i.toString());
+			};
 			
 			// GUI BUTTONS:
 			gui.add( model, 'ResetCamera' ).name("Reset Camera");

@@ -1,1 +1,1 @@
-chromium-browser --args --disable-web-security
+chromium-browser index.html --args --disable-web-security 

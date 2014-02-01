@@ -321,8 +321,8 @@ ProtoMag.Sim = function(args)
 ProtoMag.Vis = function(model)
 {
 	var canvasElement = document.getElementById("canvas");
-	
 
+	this.colormap = model.colormap;
 	this.scene = new THREE.Scene();
 
 	//var camera = null;
@@ -505,44 +505,23 @@ ProtoMag.showVectorField = function(node,fieldType,normalized,vecPos,vecDir,cutZ
 
 ProtoMag.getColorMapValue = function (MinMax, val)
 {
-			
-	if(ProtoMag.ColorMap === undefined)
-	{
-		ProtoMag.ColorMap = [
-		//Blues
-		0x0000FF,
-		0x005CFF,
-		0x00B9FF,
-		0x00FFE7,
-		//Greens
-		0x00FF8B,
-		0x00FF2E,
-		0x2EFF00,
-		0x8BFF00,
-		//Yellow-Orange-Red
-		0xE7FF00,
-		0xFFB900,
-		0xFF5C00,
-		0xFF0000
-		];
-	}
-
+	
 	var range = MinMax.max - MinMax.min;
 	
 	if( range <= 0)
 		ProtoMag.log("ERROR minmax mismatch");
 	
-	var step = range / ProtoMag.ColorMap.length;
+	var step = range / this.colormap.length;
 	
 	var index =  val / step;
 	
-	index = Math.min( Math.floor(index), ProtoMag.ColorMap.length - 1 );
+	index = Math.min( Math.floor(index), this.colormap.length - 1 );
 	
 	//DEBUG
 	if(index < 0 || index > 11 )
 		ProtoMag.log("WRONG ColorMap index: "+index);
 	
-	return ProtoMag.ColorMap[index];			
+	return this.colormap[index];
 }
 
 // dir is assumed to be normalized   
