@@ -5,7 +5,7 @@
 
 var ProtoMag = namespace("DeNaCoR.demo1");
 
-//http://www.codeovertones.com/2011/08/how-to-debug-webworker-threads.html
+
 ProtoMag.SimWithWorkers = function(model)
 {		
 	this.progress(1);
@@ -30,6 +30,7 @@ ProtoMag.SimWithWorkers = function(model)
 	// Induction constant
 	var gamma = 1;
 
+	//NOW this is auto
 	//% Integration step size
 	var ds = 0.1;
 
@@ -169,155 +170,6 @@ ProtoMag.SimWithWorkers = function(model)
 	}
 }
 
-ProtoMag.Sim = function(args)
-{
-	//draw grid
-	//ProtoMag.drawGrid();
-
-	//var progress = 1;			
-	ProtoMag.progress(1);
-
-	//define domain
-	var ND = args.dim;
-	//var Dom = 	[[-1.1, 1],
-	//			[-1.1, 1],
-	//			[0.1, 10]];
-	
-	var Dom = 	[[-args.stepx/2 * args.dim, args.stepx/2 * args.dim],
-				[-args.stepy/2 * args.dim, args.stepy/2 * args.dim],
-				[-args.stepz/2 * args.dim, args.stepz/2 * args.dim]];
-	
-	// Induction constant
-	var gamma = 1;
-
-	//% Integration step size
-	var ds = 0.1;
-
-	//%% Induction curve
-	var coil = ProtoMag.circleGen(0,0,0,0.5, args.segs);
-	var L;
-	var Nl;
-	var menu1selection = 4;
-	switch(menu1selection) //menu('Choose a test case:', 'Straight wire', 'Bent wire', 'Solenoid');
-	{
-	case 1:
-		//% Test case 1: Straight wire
-		L = [[0, 0, 0],
-			 [0, 0, 5]];
-		Nl = 2;//sizof(L)/3
-		break;
-	case 2:
-		//% Test case 2: Bent wire
-		L = [[-.5, 0, 0],
-			 [-.5, 0, 4],
-			 [1.5, 0, 4]];
-		Nl = 3;//sizeof(L)/3
-		break;
-	case 3:
-		//% Test case 3: Solenoid
-		var theta = numeric.linspace(0, 15*pi, 70);
-		//L = [cos(theta') sin(theta') theta'/10];
-		break;
-	case 4:
-		L = coil;
-		Nl = args.segs;
-		break;
-	}
-
-	//%% Declaration of variables
-	//% Induction vector components B = (U, V, W);
-	var UVW = ProtoMag.createArray(ND, ND, ND, [0,0,0]);
-
-	//% Volume Mesh
-	var mesh = ProtoMag.meshgrid(
-						numeric.linspace(Dom[0][0], Dom[0][1], ND),
-						numeric.linspace(Dom[1][0], Dom[1][1], ND),
-						numeric.linspace(Dom[2][0], Dom[2][1], ND));
-	var step = 1;
-	var final_step = (ND*ND*ND);
-	
-	
-	for(i = 0; i<ND; i++){
-		for(j = 0;j<ND;j++){
-			for(k = 0;k<ND;k++){
-
-			//% Ptest is the point of the field where we calculate induction
-			var pTest = mesh[i][j][k];//mesh[X(i,j,k),Y(i,j,k),Z(i,j,k)];
-
-			//% The curve is discretized in Nl points, we iterate on the Nl-1
-			//% segments. Each segment is discretized with a "ds" length step
-			//% to evaluate a "dB" increment of the induction "B".
-			for(pCurv = 0;pCurv<Nl-1;pCurv++)
-			{
-				//% Length of the curve element
-				var diflen = numeric.sub(L[pCurv],L[pCurv+1]);
-				var len = numeric.norm2(diflen);
-
-				//% Number of points for the curve-element discretization
-				var len_ds = numeric.div(len,ds);
-				var Npi = Math.ceil(len/ds);
-				if(Npi < 3){
-					//ProtoMag.log("ERROR Integration step is too big!!");
-				}
-
-				//% Curve-element discretization
-				var Lx = numeric.linspace(L[pCurv][0], L[pCurv+1][0], Npi);
-				var Ly = numeric.linspace(L[pCurv][1], L[pCurv+1][1], Npi);
-				var Lz = numeric.linspace(L[pCurv][2], L[pCurv+1][2], Npi);
-
-				var Ldiscrete = new Array(Npi);
-				for(ii = 0;ii< Npi; ii++)
-				{
-					Ldiscrete[ii] = [Lx[ii],Ly[ii],Lz[ii]];
-				}
-
-				//% Integration
-				for(s = 0;s<Npi-1;s++)
-				{
-					//% Vector connecting the infinitesimal curve-element
-					//% point and field point "pTest"
-					var Rxyz = numeric.sub(Ldiscrete[s] , pTest);
-					//var Rx = numeric.sub(Lx[s] , pTest[0]);
-					//var Ry = numeric.sub(Ly[s] , pTest[1]);
-					//var Rz = numeric.sub(Lz[s] , pTest[2]);
-
-					//% Infinitesimal curve-element components
-					var dLxyz = numeric.sub(Ldiscrete[s+1] , Ldiscrete[s]);
-					//var dLx = numeric.sub(Lx[s+1] , Lx[s]);
-					//var dLy = numeric.sub(Ly[s+1] , Ly[s]);
-					//var dLz = numeric.sub(Lz[s+1] , Lz[s]);
-
-					//% Modules
-					//var dL = Math.sqrt(Math.pow(dLx,2) + Math.pow(dLy,2) + Math.pow(dLz,2));
-					var dLn = numeric.norm2(dLxyz);
-					//var R = Math.sqrt(Math.pow(Rx,2) + Math.pow(Ry,2) + Math.pow(Rz,2));
-					var Rn = numeric.norm2(Rxyz);
-
-					//% Biot-Savart
-					var dUVW = numeric.mul( ProtoMag.crossprod(Rxyz,dLxyz), gamma/4/pi/Rn/Rn/Rn);
-					//var dU = gamma/4/pi*(dLy*Rz - dLz*Ry)/R/R/R;
-					//var dV = gamma/4/pi*(dLz*Rx - dLx*Rz)/R/R/R;
-					//var dW = gamma/4/pi*(dLx*Ry - dLy*Rx)/R/R/R;
-
-					//% Add increment to the main field
-					UVW[i][j][k] = numeric.add(UVW[i][j][k], numeric.mul(dUVW, args.loops) );
-					//U[i][j][k] += dU;
-					//V[i][j][k] += dV;
-					//W[i][j][k] += dW;
-				}
-			}
-
-			ProtoMag.progress( Math.floor(  ( step / final_step ) * 100 ));
-			step++;
-		}}}
-
-		ProtoMag.progress(100);
-
-
-		this.CoildMesh = coil;
-		this.Mesh = mesh;
-		this.VectorField = UVW;
-}
 ProtoMag.Vis = function(model)
 {
 	var canvasElement = document.getElementById("canvas");
@@ -438,7 +290,15 @@ ProtoMag.showVectorField = function(node,fieldType,normalized,vecPos,vecDir,cutZ
 					var mag = numeric.norm2(vecDir[i][j][k]);
 					
 					var color = ProtoMag.getColorMapValue(MinMax,mag);
-					
+
+/*
+					if(color === undefined)
+					{
+						ProtoMag.log("FATAL ERROR (possible no field or wrongn one");
+						return;
+					}
+*/
+
 					if(normalized)
 						mag = 0.25;
 					else

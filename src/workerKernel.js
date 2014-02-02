@@ -1,9 +1,12 @@
 /**
  * @author Petar Petrov
- * Communication via channels: http://threadcomm.appspot.com/
- 
+ * 
  */
- 
+ /*
+ TODO:
+ Communication via channels: http://threadcomm.appspot.com/
+ maybe better,but also too verkill for our trivial case?
+ */
  /*
 var channelPort;
 onmessage = function(e) {
@@ -28,6 +31,7 @@ self.onmessage = function(e)
 	log("Web Worker :: START");
 	
 	if (e.data.url) {
+		//TODO: maybe there is better way, without relying on hardcoded index.html
 		var url = e.data.url;
 		var urlindex = url.indexOf('index.html');
 		if (urlindex != -1) {
@@ -57,13 +61,16 @@ self.onmessage = function(e)
 				var len = numeric.norm2(diflen);
 
 				//Number of points for the curve-element discretization
-				var len_ds = numeric.div(len,params.ds);
-				var Npi = Math.ceil(len/params.ds);
-				if(Npi < 3){
-					log("ERROR Integration step is too big!!");
-				}
+				//var len_ds = numeric.div(len,params.ds);
+				//var Npi = Math.ceil(len/params.ds);
+				var Npi = AdjustPointDistribution(len);
 
-				//% Curve-element discretization
+				//AVOID ERROR HERE
+				//if(Npi < 3){
+				//	log("ERROR Integration step is too big!!");
+				//}
+
+				//Curve-element discretization
 				var Lx = numeric.linspace(L[c][0], L[c+1][0], Npi);
 				var Ly = numeric.linspace(L[c][1], L[c+1][1], Npi);
 				var Lz = numeric.linspace(L[c][2], L[c+1][2], Npi);
@@ -74,7 +81,7 @@ self.onmessage = function(e)
 					Ldiscrete[ci] = [Lx[ci],Ly[ci],Lz[ci]];
 				}
 
-				//% Integration
+				//Integration
 				for(s = 0;s<Npi-1;s++)
 				{
 					//Vector connecting the infinitesimal curve-element			
@@ -118,6 +125,26 @@ function crossprod(u,v)
 	return [u[1]*v[2]-u[2]*v[1],
 			u[2]*v[0]-u[0]*v[2],
 			u[0]*v[1]-u[1]*v[0]];
+}
+
+//try to adjust the integration step so it does make sense
+//not sure of the current state of support of TCO in javascript on moder browsers, so:
+//avoid recursion and do cycle
+function AdjustPointDistribution(segmentL)
+{
+	//var len_ds = len/ds;
+	var discretizationStep = 0.1;
+	var NP = Math.ceil(segmentL/discretizationStep);
+	var minNP = 3;//more than 1
+
+
+	while(NP < minNP){
+		//log("Integration step is too big: "+ discretizationStep.toString() + "(readjusting)");
+		discretizationStep*=0.5;
+		NP=Math.ceil(segmentL/discretizationStep);
+	}
+
+	return NP;
 }
 
 function log(msg)
