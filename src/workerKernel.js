@@ -5,7 +5,7 @@
  /*
  TODO:
  Communication via channels: http://threadcomm.appspot.com/
- maybe better,but also too verkill for our trivial case?
+ maybe better,but also too overkill for our trivial case?
  */
  /*
 var channelPort;

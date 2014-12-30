@@ -12,6 +12,7 @@
 		<script type="text/javascript" src="libs/three/TrackballControls.js"></script>
 		<script type="text/javascript" src="libs/numeric/numeric-1.2.6.js"></script>
 		<script type="text/javascript" src="libs/dat.gui/dat.gui.min.js"></script>
+		<script type="text/javascript" src="libs/core-estimator/core-estimator.min.js"></script>
 		<script type="text/javascript" src="libs/misc/requestAnimation.js"></script>
 
 		<!-- NAMESPACES IN JS -->
@@ -113,6 +114,13 @@
 			console.log(' Page Loaded ');
 			loadGUI(model);
 			console.log(' GUI Loaded ');
+			if(ProtoMag.NumberOfCores === undefined)
+			{
+				navigator.getCores(function() {
+					ProtoMag.NumberOfCores = navigator.cores;
+				});
+				ProtoMag.NumberOfCores = 2;
+			}
 		});
 
 		function setProgress(progress)

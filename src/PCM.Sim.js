@@ -41,10 +41,11 @@ ProtoMag.SimWithWorkers = function(model)
 
 
 	//%% Declaration of variables
-	//% Induction vector components B = (U, V, W);
-	var UVW = ProtoMag.createArray(ND, ND, ND, [0,0,0]);
+	// Induction vector components B = (U, V, W);
+	//var UVW = ProtoMag.createArray(ND, ND, ND, [0,0,0]);
+	var B = new Array(ND*ND*ND);
 
-	//% Volume Mesh
+	// Regular Grid Mesh (Sample Point Cloud for which we derive B)
 	var mesh = ProtoMag.meshgrid(
 						numeric.linspace(Dom[0][0], Dom[0][1], ND),
 						numeric.linspace(Dom[1][0], Dom[1][1], ND),
@@ -447,20 +448,28 @@ ProtoMag.meshgrid = function(xgv,ygv,zgv)
    var xgvL = xgv.length;
    var ygvL = ygv.length;
    var zgvL = zgv.length;
+   var SIZE = xgvL*ygvL*zgvL;
 
-   var M = ProtoMag.createArray(xgvL, ygvL, zgvL, [0,0,0]);
+   //var M = ProtoMag.createArray(xgvL, ygvL, zgvL, [0,0,0]);
+   
 
-   for(i = 0; i < xgvL; i++)
-   {
-	   for(j = 0; j < ygvL; j++)
-	   {
-			for(k = 0; k < zgvL; k++)
-			{
-				M[i][j][k] = [xgv[i],ygv[j],zgv[k]];
-			}
-	   }
-   }
+   // for(i = 0; i < xgvL; i++)
+   // {
+	  //  for(j = 0; j < ygvL; j++)
+	  //  {
+			// for(k = 0; k < zgvL; k++)
+			// {
+			// 	M[i][j][k] = [xgv[i],ygv[j],zgv[k]];
+			// }
+	  //  }
+   // }
 
+   var M = new Array(SIZE);
+
+   for (var i = 0; i < SIZE; i++) {
+   		M[i][j][k] = [xgv[i],ygv[j],zgv[k]];
+   };
+   
 	return M;
 }
 
